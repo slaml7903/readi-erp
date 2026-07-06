@@ -1,0 +1,399 @@
+READi ERP 프로젝트 인수인계 (2026-07-06)
+프로젝트 목적
+
+READi ROBUST MACHINE의 통합 ERP 구축.
+
+단순 구매 프로그램이 아니라 향후 전사 ERP까지 확장 가능한 구조로 개발.
+
+현재 목표는 구매 + 재고 + BOM + 차량부터 시작.
+
+개발 철학
+
+가장 중요하게 생각하는 원칙
+
+처음부터 완벽한 ERP를 만들지 않는다.
+확장성을 고려하되 과설계하지 않는다.
+핵심 기능이 동작하는 것을 우선한다.
+이후 기능을 하나씩 업그레이드한다.
+설계 문서는 최소화한다.
+기능 개발을 우선한다.
+사용 기술
+
+Frontend
+
+Next.js(App Router)
+React
+TypeScript
+Tailwind CSS
+
+Version Control
+
+Git
+GitHub
+
+Database
+
+현재
+
+Airtable
+Google Sheets
+
+향후
+
+PostgreSQL
+현재 프로젝트 구조
+app
+components
+docs
+features
+lib
+server
+types
+
+components
+
+layout
+    Header
+    Sidebar
+    AppShell
+
+ui
+    Card
+    PageHeader
+    StatCard
+docs
+
+현재 문서
+
+01_PRD
+
+02_PROJECT_RULES
+
+03_ARCHITECTURE
+
+04_UI
+
+05_DATA_STANDARD
+
+06_DATABASE
+
+새로운 문서는 특별한 이유가 없으면 만들지 않는다.
+
+기존 문서를 업데이트한다.
+
+ERP 방향
+
+구매 프로그램이 아니라
+
+Portal 방식의 종합 ERP
+
+메뉴
+
+Dashboard
+
+구매
+    구매요청
+    발주확인
+    입고확인
+
+재고
+    재고현황
+    재고이동로그
+
+법인차량
+
+장비관리 (예정)
+
+프로젝트관리 (예정)
+
+인사 HR (예정)
+
+관리자
+Database 구조
+
+구매
+
+↓
+
+Airtable
+
+재고
+
+↓
+
+Airtable
+
+BOM
+
+↓
+
+Airtable
+
+법인차량
+
+↓
+
+Google Sheets
+
+장비관리
+
+↓
+
+SQL 예정
+
+프로젝트관리
+
+↓
+
+SQL 예정
+
+인사
+
+↓
+
+SQL 예정
+
+개발 원칙
+
+절대
+
+Page
+
+↓
+
+Database
+
+금지
+
+항상
+
+Page
+
+↓
+
+Service
+
+↓
+
+Repository
+
+↓
+
+Database
+기능 단위 개발
+
+기능 중심 구조
+
+features
+
+purchase
+
+inventory
+
+vehicle
+
+equipment
+
+project
+
+hr
+
+DB 중심이 아니다.
+
+권한
+
+초기
+
+Admin
+
+User
+
+향후 확장 가능
+
+현재 완료
+
+프로젝트 생성
+
+GitHub 연결
+
+GitHub Push 완료
+
+Layout 분리
+
+Header
+
+Sidebar
+
+AppShell
+
+공통 UI 생성
+
+Card
+
+PageHeader
+
+StatCard
+
+Sidebar 구조 변경 준비
+
+Page Routing 완료
+
+다음 URL 생성
+
+/
+
+purchase/request
+
+purchase/order
+
+purchase/receiving
+
+inventory/status
+
+inventory/movement
+
+vehicle
+
+equipment
+
+project
+
+hr
+
+admin
+
+Placeholder Page 생성 완료
+
+다음 개발 순서
+
+우선순위
+
+① Sidebar Tree Menu 완성
+
+↓
+
+② Airtable 연결
+
+↓
+
+③ Purchase Repository
+
+↓
+
+④ Purchase Service
+
+↓
+
+⑤ 구매요청 조회
+
+↓
+
+⑥ 구매요청 등록
+
+↓
+
+⑦ 발주조회
+
+↓
+
+⑧ 입고조회
+
+↓
+
+⑨ Inventory
+
+↓
+
+⑩ BOM
+
+↓
+
+⑪ Dashboard 실데이터 연결
+
+Git 운영
+
+터미널 Git 사용 최소화.
+
+VSCode Source Control 사용.
+
+Commit
+
+↓
+
+Sync
+
+↓
+
+GitHub 확인
+
+방식으로 진행.
+
+개발 방식
+
+앞으로는
+
+코드 조금
+
+↓
+
+코드 조금
+
+방식이 아니라
+
+기능 단위 개발
+
+예)
+
+"구매요청 조회"
+
+필요한 파일 전체
+
+↓
+
+테스트
+
+↓
+
+Git Commit
+
+↓
+
+다음 기능
+
+순으로 진행.
+
+가장 중요한 프로젝트 방향
+
+이 프로젝트의 목적은
+
+예쁜 웹사이트가 아니라
+
+실제 회사에서 사용하는 ERP 구축이다.
+
+따라서
+
+UI보다
+
+구조
+
+성능
+
+유지보수
+
+확장성
+
+을 우선한다.
+
+다만 과설계는 하지 않는다.
+
+"지금 필요한 만큼만 구현하고, 나중에 확장한다."
+
+이 원칙을 프로젝트 전체에서 유지한다.
+
+다음 채팅 시작 문장(추천)
+
+다음 대화에서는 아래 한 문장만 보내주면 바로 이어서 진행할 수 있어.
+
+"READi ERP 이어서 진행하자. 이전 설계 기준 그대로 다음 기능부터 개발."
+
+이렇게 시작하면 지금까지의 설계 방향과 개발 원칙을 그대로 이어서 작업하겠다.
