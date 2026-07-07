@@ -1,12 +1,18 @@
-import AppShell from "@/components/layout/AppShell";
+import { PageHeader } from "@/components/ui";
+import PurchaseRequestClient from "@/features/purchase/components/PurchaseRequestClient";
+import { fetchPurchaseRequests } from "@/features/purchase/services/purchase.service";
 
-export default function PurchaseRequestPage() {
+export default async function PurchaseRequestPage() {
+  const purchaseRequests = await fetchPurchaseRequests();
+
   return (
-    <AppShell>
-      <h2 className="text-2xl font-bold">구매요청</h2>
-      <p className="mt-2 text-sm text-slate-500">
-        개발할 예정입니다.
-      </p>
-    </AppShell>
+    <div className="space-y-6 text-gray-900">
+      <PageHeader
+        title="구매요청"
+        description="구매요청 접수 현황을 확인합니다."
+      />
+
+      <PurchaseRequestClient data={purchaseRequests} />
+    </div>
   );
 }

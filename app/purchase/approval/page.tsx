@@ -1,16 +1,16 @@
 import { PageHeader } from "@/components/ui";
 
-export default function ProjectPage() {
+export default function PurchaseApprovalPage() {
   return (
     <div className="space-y-6 text-gray-900">
       <PageHeader
-        title="프로젝트"
-        description="프로젝트 현황을 확인합니다."
+        title="구매승인"
+        description="구매요청 승인 현황을 확인합니다."
       />
 
       <div className="rounded-lg border border-gray-200 bg-white p-6">
         <p className="text-sm text-gray-500">
-          프로젝트 화면은 추후 구현 예정입니다.
+          구매승인 화면은 추후 구현 예정입니다.
         </p>
       </div>
     </div>
