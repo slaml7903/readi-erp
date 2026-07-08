@@ -1,12 +1,27 @@
-import AppShell from "@/components/layout/AppShell";
+import { PageHeader } from "@/components/ui";
+import PurchaseOrderList from "@/features/purchase/components/PurchaseOrderList";
+import { fetchPurchaseRequests } from "@/features/purchase/services/purchase.service";
 
-export default function PurchaseOrderPage() {
+type PurchaseOrderPageProps = {
+  searchParams: Promise<{
+    q?: string;
+  }>;
+};
+
+export default async function PurchaseOrderPage({
+  searchParams,
+}: PurchaseOrderPageProps) {
+  const { q } = await searchParams;
+  const purchaseRequests = await fetchPurchaseRequests();
+
   return (
-    <AppShell>
-      <h2 className="text-2xl font-bold">발주확인</h2>
-      <p className="mt-2 text-sm text-slate-500">
-        개발할 예정입니다.
-      </p>
-    </AppShell>
+    <div className="space-y-6 text-gray-900">
+      <PageHeader
+        title="발주관리"
+        description="발주 목록을 확인하고 입고확인을 제출합니다."
+      />
+
+      <PurchaseOrderList requests={purchaseRequests} initialSearch={q ?? ""} />
+    </div>
   );
 }

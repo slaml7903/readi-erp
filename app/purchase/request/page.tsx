@@ -2,7 +2,16 @@ import { PageHeader } from "@/components/ui";
 import PurchaseRequestClient from "@/features/purchase/components/PurchaseRequestClient";
 import { fetchPurchaseRequests } from "@/features/purchase/services/purchase.service";
 
-export default async function PurchaseRequestPage() {
+type PurchaseRequestPageProps = {
+  searchParams: Promise<{
+    q?: string;
+  }>;
+};
+
+export default async function PurchaseRequestPage({
+  searchParams,
+}: PurchaseRequestPageProps) {
+  const { q } = await searchParams;
   const purchaseRequests = await fetchPurchaseRequests();
 
   return (
@@ -12,7 +21,7 @@ export default async function PurchaseRequestPage() {
         description="구매요청 접수 현황을 확인합니다."
       />
 
-      <PurchaseRequestClient data={purchaseRequests} />
+      <PurchaseRequestClient data={purchaseRequests} initialSearch={q ?? ""} />
     </div>
   );
 }

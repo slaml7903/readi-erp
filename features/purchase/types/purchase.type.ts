@@ -187,6 +187,40 @@ export interface PurchaseReceiving {
   memo?: string;
 }
 
+export interface PurchaseReceivingOrderDetail {
+  id: string;
+  poNo: string;
+  title?: string;
+  status?: PurchaseOrderStatus;
+  expectedReceivingDate?: string;
+  receivingChecker?: string;
+  vendorNames?: string[];
+  items: PurchaseOrderItemSummary[];
+}
+
+export interface PurchaseReceivingReviewItem {
+  id: string;
+  receivingNo: string;
+  poRecordIds?: string[];
+  poNos?: string[];
+  title?: string;
+  receivingChecker?: string;
+  receivingDate?: string;
+  reviewCompleted: boolean;
+  memo?: string;
+  transactionStatementFiles?: AirtableAttachment[];
+  receivingEvidenceFiles?: AirtableAttachment[];
+}
+
+export interface SubmitPurchaseReceivingInput {
+  orderRecordId: string;
+  receivingChecker: string;
+  receivingDate: string;
+  memo?: string;
+  transactionStatementFile?: CreateAirtableAttachmentInput;
+  receivingEvidenceFile?: CreateAirtableAttachmentInput;
+}
+
 export interface CreatePurchaseRequestInput {
   title: string;
   teamName: string;
@@ -210,8 +244,14 @@ export interface CreatePurchaseOrderInput {
 }
 
 export interface CreateNewVendorDocumentsInput {
-  businessLicenseUrl?: string;
-  bankbookUrl?: string;
+  businessLicenseFile?: CreateAirtableAttachmentInput;
+  bankbookFile?: CreateAirtableAttachmentInput;
+}
+
+export interface CreateAirtableAttachmentInput {
+  filename: string;
+  contentType: string;
+  file: string;
 }
 
 export interface CreatePurchaseOrderItemInput {

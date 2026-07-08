@@ -10,6 +10,7 @@ import {
 } from "react";
 
 import { Button, Card, Input, Select } from "@/components/ui";
+import { FileDropzone } from "@/components/ui/FileDropzone";
 
 type VendorOption = {
   id: string;
@@ -30,8 +31,8 @@ type PurchaseOrderFormState = {
   id: string;
   vendorRecordId: string;
   vendorName: string;
-  businessLicenseUrl: string;
-  bankbookUrl: string;
+  businessLicenseFile: File | null;
+  bankbookFile: File | null;
   orderDate: string;
   expectedReceivingDate: string;
   receivingChecker: string;
@@ -69,8 +70,8 @@ function createEmptyOrder(): PurchaseOrderFormState {
     id: createId(),
     vendorRecordId: "",
     vendorName: "",
-    businessLicenseUrl: "",
-    bankbookUrl: "",
+    businessLicenseFile: null,
+    bankbookFile: null,
     orderDate: "",
     expectedReceivingDate: "",
     receivingChecker: "",
@@ -99,6 +100,46 @@ function calculateVatIncludedAmount({
 
   return Math.round(supplyAmount * 1.1);
 }
+
+function fileToAirtableUpload(file: File) {
+  return new Promise<{
+    filename: string;
+    contentType: string;
+    file: string;
+  }>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const result = reader.result;
+
+      if (typeof result !== "string") {
+        reject(new Error("파일을 읽을 수 없습니다."));
+        return;
+      }
+
+      const [, base64File = ""] = result.split(",");
+
+      resolve({
+        filename: file.name,
+        contentType: file.type || "application/octet-stream",
+        file: base64File,
+      });
+    };
+
+    reader.onerror = () => {
+      reject(new Error("파일을 읽는 중 오류가 발생했습니다."));
+    };
+
+    reader.readAsDataURL(file);
+  });
+}
+
+const documentFileAccept = {
+  "application/pdf": [".pdf"],
+  "image/jpeg": [".jpg", ".jpeg"],
+  "image/png": [".png"],
+  "image/webp": [".webp"],
+};
 
 const initialFormState: PurchaseRequestFormState = {
   title: "",
@@ -160,7 +201,10 @@ export default function PurchaseRequestCreateForm() {
 
   const handleOrderChange = (
     orderId: string,
-    key: keyof Omit<PurchaseOrderFormState, "id" | "items">,
+    key: keyof Omit<
+      PurchaseOrderFormState,
+      "id" | "items" | "businessLicenseFile" | "bankbookFile"
+    >,
     value: string | boolean
   ) => {
     setForm((prev) => ({
@@ -190,10 +234,10 @@ export default function PurchaseRequestCreateForm() {
               ...order,
               vendorName,
               vendorRecordId: matchedVendor?.id ?? "",
-              businessLicenseUrl: matchedVendor
-                ? ""
-                : order.businessLicenseUrl,
-              bankbookUrl: matchedVendor ? "" : order.bankbookUrl,
+              businessLicenseFile: matchedVendor
+                ? null
+                : order.businessLicenseFile,
+              bankbookFile: matchedVendor ? null : order.bankbookFile,
             }
           : order
       ),
@@ -209,8 +253,26 @@ export default function PurchaseRequestCreateForm() {
               ...order,
               vendorName: vendor.name,
               vendorRecordId: vendor.id,
-              businessLicenseUrl: "",
-              bankbookUrl: "",
+              businessLicenseFile: null,
+              bankbookFile: null,
+            }
+          : order
+      ),
+    }));
+  };
+
+  const handleOrderDocumentFileChange = (
+    orderId: string,
+    key: "businessLicenseFile" | "bankbookFile",
+    file: File | null
+  ) => {
+    setForm((prev) => ({
+      ...prev,
+      orders: prev.orders.map((order) =>
+        order.id === orderId
+          ? {
+              ...order,
+              [key]: file,
             }
           : order
       ),
@@ -333,20 +395,20 @@ export default function PurchaseRequestCreateForm() {
         order.vendorName.trim().length > 0 && !order.vendorRecordId;
 
       if (isNewVendor) {
-        if (!order.businessLicenseUrl.trim()) {
+        if (!order.businessLicenseFile) {
           alert(
             `${
               orderIndex + 1
-            }번째 발주의 신규 거래처 사업자등록증 URL을 입력해주세요.`
+            }번째 발주의 신규 거래처 사업자등록증 파일을 첨부해주세요.`
           );
           return false;
         }
 
-        if (!order.bankbookUrl.trim()) {
+        if (!order.bankbookFile) {
           alert(
             `${
               orderIndex + 1
-            }번째 발주의 신규 거래처 통장사본 URL을 입력해주세요.`
+            }번째 발주의 신규 거래처 통장사본 파일을 첨부해주세요.`
           );
           return false;
         }
@@ -396,7 +458,7 @@ export default function PurchaseRequestCreateForm() {
     return true;
   };
 
-  const buildSubmitPayload = () => {
+  const buildSubmitPayload = async () => {
     return {
       title: form.title.trim(),
       teamName: form.teamName,
@@ -404,34 +466,39 @@ export default function PurchaseRequestCreateForm() {
       requestDate: form.requestDate || undefined,
       requiredDate: form.requiredDate || undefined,
       memo: form.memo.trim() || undefined,
-      orders: form.orders.map((order) => {
-        const isNewVendor =
-          order.vendorName.trim().length > 0 && !order.vendorRecordId;
+      orders: await Promise.all(
+        form.orders.map(async (order) => {
+          const isNewVendor =
+            order.vendorName.trim().length > 0 && !order.vendorRecordId;
 
-        return {
-          vendorRecordId: order.vendorRecordId || undefined,
-          vendorName: order.vendorName.trim() || undefined,
-          newVendorDocuments: isNewVendor
-            ? {
-                businessLicenseUrl:
-                  order.businessLicenseUrl.trim() || undefined,
-                bankbookUrl: order.bankbookUrl.trim() || undefined,
-              }
-            : undefined,
-          orderDate: order.orderDate || undefined,
-          expectedReceivingDate: order.expectedReceivingDate || undefined,
-          receivingChecker: order.receivingChecker.trim() || undefined,
-          needPayment: true,
-          memo: order.memo.trim() || undefined,
-          items: order.items.map((item) => ({
-            modelName: item.modelName.trim(),
-            quantity: Number(item.quantity),
-            unitPrice: Number(item.unitPrice),
-            vatIncluded: item.vatIncluded,
-            memo: item.memo.trim() || undefined,
-          })),
-        };
-      }),
+          return {
+            vendorRecordId: order.vendorRecordId || undefined,
+            vendorName: order.vendorName.trim() || undefined,
+            newVendorDocuments: isNewVendor
+              ? {
+                  businessLicenseFile: order.businessLicenseFile
+                    ? await fileToAirtableUpload(order.businessLicenseFile)
+                    : undefined,
+                  bankbookFile: order.bankbookFile
+                    ? await fileToAirtableUpload(order.bankbookFile)
+                    : undefined,
+                }
+              : undefined,
+            orderDate: order.orderDate || undefined,
+            expectedReceivingDate: order.expectedReceivingDate || undefined,
+            receivingChecker: order.receivingChecker.trim() || undefined,
+            needPayment: true,
+            memo: order.memo.trim() || undefined,
+            items: order.items.map((item) => ({
+              modelName: item.modelName.trim(),
+              quantity: Number(item.quantity),
+              unitPrice: Number(item.unitPrice),
+              vatIncluded: item.vatIncluded,
+              memo: item.memo.trim() || undefined,
+            })),
+          };
+        })
+      ),
     };
   };
 
@@ -440,10 +507,10 @@ export default function PurchaseRequestCreateForm() {
 
     if (!validateForm()) return;
 
-    const payload = buildSubmitPayload();
-
     try {
       setIsSubmitting(true);
+
+      const payload = await buildSubmitPayload();
 
       const response = await fetch("/api/purchase/request", {
         method: "POST",
@@ -581,6 +648,7 @@ export default function PurchaseRequestCreateForm() {
             onOrderChange={handleOrderChange}
             onVendorInputChange={handleVendorInputChange}
             onVendorSelect={handleVendorSelect}
+            onOrderDocumentFileChange={handleOrderDocumentFileChange}
             onRemoveOrder={handleRemoveOrder}
             onAddOrderItem={handleAddOrderItem}
             onOrderItemChange={handleOrderItemChange}
@@ -615,6 +683,7 @@ function OrderFormCard({
   onOrderChange,
   onVendorInputChange,
   onVendorSelect,
+  onOrderDocumentFileChange,
   onRemoveOrder,
   onAddOrderItem,
   onOrderItemChange,
@@ -626,11 +695,19 @@ function OrderFormCard({
   isVendorLoading: boolean;
   onOrderChange: (
     orderId: string,
-    key: keyof Omit<PurchaseOrderFormState, "id" | "items">,
+    key: keyof Omit<
+      PurchaseOrderFormState,
+      "id" | "items" | "businessLicenseFile" | "bankbookFile"
+    >,
     value: string | boolean
   ) => void;
   onVendorInputChange: (orderId: string, vendorName: string) => void;
   onVendorSelect: (orderId: string, vendor: VendorOption) => void;
+  onOrderDocumentFileChange: (
+    orderId: string,
+    key: "businessLicenseFile" | "bankbookFile",
+    file: File | null
+  ) => void;
   onRemoveOrder: (orderId: string) => void;
   onAddOrderItem: (orderId: string) => void;
   onOrderItemChange: (
@@ -737,39 +814,35 @@ function OrderFormCard({
 
         {isNewVendor ? (
           <>
-            <FormField
-              label="신규 거래처 사업자등록증 URL"
-              required
-              className="col-span-6"
-            >
-              <Input
-                value={order.businessLicenseUrl}
-                onChange={(e) =>
-                  onOrderChange(
+            <div className="col-span-6">
+              <FileDropzone
+                label="신규 거래처 사업자등록증"
+                required
+                file={order.businessLicenseFile}
+                onFileChange={(file) =>
+                  onOrderDocumentFileChange(
                     order.id,
-                    "businessLicenseUrl",
-                    e.target.value
+                    "businessLicenseFile",
+                    file
                   )
                 }
-                placeholder="예: https://..."
-                className="h-9"
+                accept={documentFileAccept}
+                helperText="PDF 또는 이미지 파일을 첨부해주세요."
               />
-            </FormField>
+            </div>
 
-            <FormField
-              label="신규 거래처 통장사본 URL"
-              required
-              className="col-span-6"
-            >
-              <Input
-                value={order.bankbookUrl}
-                onChange={(e) =>
-                  onOrderChange(order.id, "bankbookUrl", e.target.value)
+            <div className="col-span-6">
+              <FileDropzone
+                label="신규 거래처 통장사본"
+                required
+                file={order.bankbookFile}
+                onFileChange={(file) =>
+                  onOrderDocumentFileChange(order.id, "bankbookFile", file)
                 }
-                placeholder="예: https://..."
-                className="h-9"
+                accept={documentFileAccept}
+                helperText="PDF 또는 이미지 파일을 첨부해주세요."
               />
-            </FormField>
+            </div>
           </>
         ) : null}
       </div>
@@ -872,7 +945,7 @@ function VendorCombobox({
       ) : isNewVendor ? (
         <div className="mt-1 text-[11px] leading-4 text-blue-600">
           신규 거래처가 생성됩니다.
-          사업자등록증 URL과 통장사본 URL을 입력해야 저장됩니다.
+          사업자등록증과 통장사본 파일을 첨부해야 저장됩니다.
         </div>
       ) : null}
 

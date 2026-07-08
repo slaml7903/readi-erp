@@ -1,14 +1,3 @@
-const token = process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN;
-const baseId = process.env.AIRTABLE_BASE_ID;
-
-if (!token) {
-  throw new Error("AIRTABLE_PERSONAL_ACCESS_TOKEN is not defined");
-}
-
-if (!baseId) {
-  throw new Error("AIRTABLE_BASE_ID is not defined");
-}
-
 type AirtableFetchOptions = {
   pageSize?: number;
   cache?: RequestCache;
@@ -35,6 +24,21 @@ export type AirtableUploadFileInput = {
   file: string;
 };
 
+function getAirtableConfig() {
+  const token = process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN;
+  const baseId = process.env.AIRTABLE_BASE_ID;
+
+  if (!token) {
+    throw new Error("AIRTABLE_PERSONAL_ACCESS_TOKEN is not defined");
+  }
+
+  if (!baseId) {
+    throw new Error("AIRTABLE_BASE_ID is not defined");
+  }
+
+  return { token, baseId };
+}
+
 function chunkArray<T>(items: T[], size: number): T[][] {
   const chunks: T[][] = [];
 
@@ -45,6 +49,37 @@ function chunkArray<T>(items: T[], size: number): T[][] {
   return chunks;
 }
 
+function createAirtableUrl(tableName: string) {
+  const { baseId } = getAirtableConfig();
+
+  return new URL(
+    `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}`
+  );
+}
+
+async function requestAirtable<T>(
+  url: URL,
+  init: RequestInit,
+  errorMessage: string
+): Promise<T> {
+  const { token } = getAirtableConfig();
+
+  const response = await fetch(url.toString(), {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...init.headers,
+    },
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`${errorMessage}: ${message}`);
+  }
+
+  return response.json() as Promise<T>;
+}
+
 export async function airtableFetch(
   tableName: string,
   options: AirtableFetchOptions = {}
@@ -52,29 +87,70 @@ export async function airtableFetch(
   const pageSize = options.pageSize ?? 100;
   const cache = options.cache ?? "force-cache";
 
-  const url = new URL(
-    `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}`
-  );
+  const url = createAirtableUrl(tableName);
 
   url.searchParams.set("pageSize", String(pageSize));
 
-  const response = await fetch(url.toString(), {
-    headers: {
-      Authorization: `Bearer ${token}`,
+  return requestAirtable<AirtableResponse>(
+    url,
+    {
+      cache,
+      next: {
+        revalidate: 30,
+        tags: [`airtable-${tableName}`],
+      },
     },
-    cache,
-    next: {
-      revalidate: 30,
-      tags: [`airtable-${tableName}`],
-    },
-  });
+    "Failed to fetch Airtable data"
+  );
+}
 
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`Failed to fetch Airtable data: ${message}`);
+export async function airtableFetchRecord(
+  tableName: string,
+  recordId: string,
+  options: Pick<AirtableFetchOptions, "cache"> = {}
+): Promise<AirtableRecord> {
+  const cache = options.cache ?? "force-cache";
+  const url = createAirtableUrl(tableName);
+
+  url.pathname = `${url.pathname}/${encodeURIComponent(recordId)}`;
+
+  return requestAirtable<AirtableRecord>(
+    url,
+    {
+      cache,
+      next: {
+        revalidate: 30,
+        tags: [`airtable-${tableName}`, `airtable-${tableName}-${recordId}`],
+      },
+    },
+    "Failed to fetch Airtable record"
+  );
+}
+
+async function airtableFetchPage(
+  tableName: string,
+  offset: string | undefined,
+  cache: RequestCache
+): Promise<AirtableResponse> {
+  const url = createAirtableUrl(tableName);
+
+  url.searchParams.set("pageSize", "100");
+
+  if (offset) {
+    url.searchParams.set("offset", offset);
   }
 
-  return response.json();
+  return requestAirtable<AirtableResponse>(
+    url,
+    {
+      cache,
+      next: {
+        revalidate: 30,
+        tags: [`airtable-${tableName}`],
+      },
+    },
+    "Failed to fetch Airtable data"
+  );
 }
 
 export async function airtableFetchAll(
@@ -86,33 +162,7 @@ export async function airtableFetchAll(
   const cache = options.cache ?? "force-cache";
 
   do {
-    const url = new URL(
-      `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}`
-    );
-
-    url.searchParams.set("pageSize", "100");
-
-    if (offset) {
-      url.searchParams.set("offset", offset);
-    }
-
-    const response = await fetch(url.toString(), {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      cache,
-      next: {
-        revalidate: 30,
-        tags: [`airtable-${tableName}`],
-      },
-    });
-
-    if (!response.ok) {
-      const message = await response.text();
-      throw new Error(`Failed to fetch Airtable data: ${message}`);
-    }
-
-    const data = (await response.json()) as AirtableResponse;
+    const data = await airtableFetchPage(tableName, offset, cache);
 
     records.push(...data.records);
     offset = data.offset;
@@ -125,27 +175,45 @@ export async function airtableCreateRecord(
   tableName: string,
   fields: Record<string, unknown>
 ): Promise<AirtableRecord> {
-  const url = new URL(
-    `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}`
-  );
+  const url = createAirtableUrl(tableName);
 
-  const response = await fetch(url.toString(), {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
+  return requestAirtable<AirtableRecord>(
+    url,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        fields,
+      }),
     },
-    body: JSON.stringify({
-      fields,
-    }),
-  });
+    "Failed to create Airtable record"
+  );
+}
 
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`Failed to create Airtable record: ${message}`);
-  }
+export async function airtableUpdateRecord(
+  tableName: string,
+  recordId: string,
+  fields: Record<string, unknown>
+): Promise<AirtableRecord> {
+  const url = createAirtableUrl(tableName);
 
-  return response.json();
+  url.pathname = `${url.pathname}/${encodeURIComponent(recordId)}`;
+
+  return requestAirtable<AirtableRecord>(
+    url,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        fields,
+      }),
+    },
+    "Failed to update Airtable record"
+  );
 }
 
 export async function airtableCreateRecords(
@@ -158,29 +226,23 @@ export async function airtableCreateRecords(
   const chunks = chunkArray(records, 10);
 
   for (const chunk of chunks) {
-    const url = new URL(
-      `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}`
-    );
+    const url = createAirtableUrl(tableName);
 
-    const response = await fetch(url.toString(), {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
+    const data = await requestAirtable<AirtableCreateRecordsResponse>(
+      url,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          records: chunk.map((fields) => ({
+            fields,
+          })),
+        }),
       },
-      body: JSON.stringify({
-        records: chunk.map((fields) => ({
-          fields,
-        })),
-      }),
-    });
-
-    if (!response.ok) {
-      const message = await response.text();
-      throw new Error(`Failed to create Airtable records: ${message}`);
-    }
-
-    const data = (await response.json()) as AirtableCreateRecordsResponse;
+      "Failed to create Airtable records"
+    );
 
     createdRecords.push(...data.records);
   }
@@ -193,25 +255,22 @@ export async function airtableUploadAttachment(
   attachmentFieldName: string,
   fileInput: AirtableUploadFileInput
 ): Promise<AirtableRecord> {
+  const { baseId } = getAirtableConfig();
   const url = new URL(
     `https://content.airtable.com/v0/${baseId}/${encodeURIComponent(
       recordId
     )}/${encodeURIComponent(attachmentFieldName)}/uploadAttachment`
   );
 
-  const response = await fetch(url.toString(), {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
+  return requestAirtable<AirtableRecord>(
+    url,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(fileInput),
     },
-    body: JSON.stringify(fileInput),
-  });
-
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`Failed to upload Airtable attachment: ${message}`);
-  }
-
-  return response.json();
+    "Failed to upload Airtable attachment"
+  );
 }

@@ -2,6 +2,7 @@ import {
   airtableCreateRecord,
   airtableCreateRecords,
   airtableFetchAll,
+  airtableUploadAttachment,
 } from "@/lib/airtable/client";
 
 import type {
@@ -98,20 +99,6 @@ function removeUndefinedFields(fields: Record<string, unknown>) {
 
 function normalizeName(value: string) {
   return value.trim().replace(/\s+/g, " ").toLowerCase();
-}
-
-function createAttachmentFromUrl(url?: string) {
-  if (!url) return undefined;
-
-  const trimmedUrl = url.trim();
-
-  if (!trimmedUrl) return undefined;
-
-  return [
-    {
-      url: trimmedUrl,
-    },
-  ];
 }
 
 export async function getPurchaseRequests(): Promise<PurchaseRequest[]> {
@@ -286,65 +273,87 @@ async function createNewVendorDocuments(
   vendorRecordIdByOrderIndex: Map<number, string>,
   newlyCreatedVendorIdsByNormalizedName: Map<string, string>
 ) {
-  const documentFieldsList: Record<string, unknown>[] = [];
   const createdDocumentKeySet = new Set<string>();
+  const createdDocumentRecords: AirtableRecord[] = [];
 
-  orders.forEach((order, orderIndex) => {
+  for (let orderIndex = 0; orderIndex < orders.length; orderIndex += 1) {
+    const order = orders[orderIndex];
     const vendorName = order.vendorName?.trim();
 
-    if (!vendorName) return;
+    if (!vendorName) continue;
 
     const normalizedVendorName = normalizeName(vendorName);
     const vendorRecordId = vendorRecordIdByOrderIndex.get(orderIndex);
     const newlyCreatedVendorId =
       newlyCreatedVendorIdsByNormalizedName.get(normalizedVendorName);
 
-    if (!vendorRecordId || !newlyCreatedVendorId) return;
+    if (!vendorRecordId || !newlyCreatedVendorId) continue;
 
-    const businessLicenseAttachment = createAttachmentFromUrl(
-      order.newVendorDocuments?.businessLicenseUrl
-    );
+    const businessLicenseFile = order.newVendorDocuments?.businessLicenseFile;
+    const bankbookFile = order.newVendorDocuments?.bankbookFile;
 
-    const bankbookAttachment = createAttachmentFromUrl(
-      order.newVendorDocuments?.bankbookUrl
-    );
+    if (businessLicenseFile) {
+      const documentRecord = await createVendorDocumentWithAttachment({
+        vendorRecordId,
+        documentType: "사업자등록증",
+        file: businessLicenseFile,
+        createdDocumentKeySet,
+      });
 
-    if (businessLicenseAttachment) {
-      const documentKey = `${vendorRecordId}-사업자등록증`;
-
-      if (!createdDocumentKeySet.has(documentKey)) {
-        documentFieldsList.push(
-          removeUndefinedFields({
-            벤더: [vendorRecordId],
-            종류: "사업자등록증",
-            첨부: businessLicenseAttachment,
-          })
-        );
-
-        createdDocumentKeySet.add(documentKey);
+      if (documentRecord) {
+        createdDocumentRecords.push(documentRecord);
       }
     }
 
-    if (bankbookAttachment) {
-      const documentKey = `${vendorRecordId}-통장사본`;
+    if (bankbookFile) {
+      const documentRecord = await createVendorDocumentWithAttachment({
+        vendorRecordId,
+        documentType: "통장사본",
+        file: bankbookFile,
+        createdDocumentKeySet,
+      });
 
-      if (!createdDocumentKeySet.has(documentKey)) {
-        documentFieldsList.push(
-          removeUndefinedFields({
-            벤더: [vendorRecordId],
-            종류: "통장사본",
-            첨부: bankbookAttachment,
-          })
-        );
-
-        createdDocumentKeySet.add(documentKey);
+      if (documentRecord) {
+        createdDocumentRecords.push(documentRecord);
       }
     }
-  });
+  }
 
-  if (documentFieldsList.length === 0) return [];
+  return createdDocumentRecords;
+}
 
-  return await airtableCreateRecords("06.Documents", documentFieldsList);
+async function createVendorDocumentWithAttachment({
+  vendorRecordId,
+  documentType,
+  file,
+  createdDocumentKeySet,
+}: {
+  vendorRecordId: string;
+  documentType: string;
+  file: {
+    filename: string;
+    contentType: string;
+    file: string;
+  };
+  createdDocumentKeySet: Set<string>;
+}) {
+  const documentKey = `${vendorRecordId}-${documentType}`;
+
+  if (createdDocumentKeySet.has(documentKey)) {
+    return undefined;
+  }
+
+  const documentRecord = await airtableCreateRecord(
+    "06.Documents",
+    removeUndefinedFields({
+      벤더: [vendorRecordId],
+      종류: documentType,
+    })
+  );
+
+  createdDocumentKeySet.add(documentKey);
+
+  return await airtableUploadAttachment(documentRecord.id, "첨부", file);
 }
 
 export async function createPurchaseRequest(

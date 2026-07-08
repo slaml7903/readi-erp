@@ -1,5 +1,3 @@
-import AppShell from "@/components/layout/AppShell";
-
 const dashboardCards = [
   { title: "구매 진행", value: "0건", description: "진행 중인 구매요청" },
   { title: "입고 예정", value: "0건", description: "예상 입고 대상" },
@@ -9,7 +7,7 @@ const dashboardCards = [
 
 export default function Home() {
   return (
-    <AppShell>
+    <>
       <div className="mb-8">
         <h2 className="text-2xl font-bold">Dashboard</h2>
         <p className="mt-1 text-sm text-slate-500">
@@ -37,6 +35,6 @@ export default function Home() {
           진행합니다.
         </p>
       </div>
-    </AppShell>
+    </>
   );
 }

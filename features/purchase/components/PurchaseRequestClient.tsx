@@ -13,12 +13,13 @@ import type { PurchaseRequest } from "../types/purchase.type";
 
 interface Props {
   data: PurchaseRequest[];
+  initialSearch?: string;
 }
 
-export default function PurchaseRequestClient({ data }: Props) {
+export default function PurchaseRequestClient({ data, initialSearch = "" }: Props) {
   const router = useRouter();
 
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
   const [status, setStatus] = useState("");
   const [team, setTeam] = useState("");
   const [selectedRequest, setSelectedRequest] =
@@ -31,7 +32,19 @@ export default function PurchaseRequestClient({ data }: Props) {
       const keywordMatched =
         item.prNo.toLowerCase().includes(searchText) ||
         item.title.toLowerCase().includes(searchText) ||
-        Boolean(item.requester?.toLowerCase().includes(searchText));
+        Boolean(item.teamName?.toLowerCase().includes(searchText)) ||
+        Boolean(item.requester?.toLowerCase().includes(searchText)) ||
+        Boolean(item.status?.toLowerCase().includes(searchText)) ||
+        Boolean(
+          item.projectNames?.some((projectName) =>
+            projectName.toLowerCase().includes(searchText)
+          )
+        ) ||
+        Boolean(
+          item.vendorNames?.some((vendorName) =>
+            vendorName.toLowerCase().includes(searchText)
+          )
+        );
 
       const statusMatched = status === "" || item.status === status;
       const teamMatched = team === "" || item.teamName === team;
