@@ -34,7 +34,7 @@ export default function PurchaseFilterBar({
           type="text"
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="PR NO. / 제목 / 팀명 / 요청자 / 프로젝트 / 벤더 / 상태 검색"
+          placeholder="구매요청 검색..."
           className="w-72"
         />
 

@@ -21,7 +21,7 @@ export default async function PurchaseReceivingNewPage({
           href="/purchase/receiving"
           className="inline-flex text-sm font-medium text-slate-600 hover:text-slate-900"
         >
-          ← 입고관리 목록
+          ← 입고검토 목록
         </Link>
 
         <PageHeader
@@ -39,8 +39,8 @@ export default async function PurchaseReceivingNewPage({
       <Link
         href="/purchase/receiving"
         className="inline-flex text-sm font-medium text-slate-600 hover:text-slate-900"
-      >
-        ← 입고관리 목록
+        >
+        ← 입고검토 목록
       </Link>
 
       <PageHeader

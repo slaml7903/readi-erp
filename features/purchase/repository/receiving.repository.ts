@@ -156,7 +156,7 @@ export async function getReceivingOrderDetail(
   const [orderRecord, orderItemRecords, vendorRecords] = await Promise.all([
     airtableFetchRecord(ORDER_TABLE, orderRecordId, { cache: "no-store" }),
     airtableFetchAll(ORDER_ITEM_TABLE, { cache: "no-store" }),
-    airtableFetchAll(VENDOR_TABLE, { cache: "no-store" }),
+    airtableFetchAll(VENDOR_TABLE),
   ]);
 
   const vendorNameMap = createVendorNameMap(vendorRecords);
@@ -185,7 +185,7 @@ export async function getReceivingReviewItems(): Promise<
 > {
   const [receivingRecords, orderRecords] = await Promise.all([
     airtableFetchAll(RECEIVING_TABLE, { cache: "no-store" }),
-    airtableFetchAll(ORDER_TABLE, { cache: "no-store" }),
+    airtableFetchAll(ORDER_TABLE),
   ]);
 
   const orderNoMap = createOrderNoMap(orderRecords);

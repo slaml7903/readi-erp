@@ -18,7 +18,7 @@ export default async function PurchaseReceivingPage({
   return (
     <div className="space-y-6 text-gray-900">
       <PageHeader
-        title="입고관리"
+        title="입고검토"
         description="입고확인 제출 내역을 조회하고 검토완료 처리합니다."
       />
 

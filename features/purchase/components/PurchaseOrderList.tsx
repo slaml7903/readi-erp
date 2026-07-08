@@ -64,7 +64,7 @@ export default function PurchaseOrderList({
           <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="PO NO. / 제목 / 벤더 / 입고확인자 / 상태 / 예상 입고일 검색"
+            placeholder="발주 검색..."
             className="w-96"
           />
 

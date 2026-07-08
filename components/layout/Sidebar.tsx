@@ -22,9 +22,12 @@ function SidebarLink({ item, depth = 0 }: { item: NavigationItem; depth?: number
 
   if (!item.href) {
     return (
-      <div
+      <Link
+        href={`/planned?menu=${encodeURIComponent(item.label)}`}
+        prefetch={false}
         className={[
           "flex items-center justify-between rounded-lg py-2.5 pr-3 text-sm font-medium text-slate-400",
+          "hover:bg-slate-50 hover:text-slate-500",
           paddingByDepth,
         ].join(" ")}
       >
@@ -32,13 +35,14 @@ function SidebarLink({ item, depth = 0 }: { item: NavigationItem; depth?: number
         <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-400">
           준비중
         </span>
-      </div>
+      </Link>
     );
   }
 
   return (
     <Link
       href={item.href}
+      prefetch
       className={[
         "flex items-center justify-between rounded-lg py-2.5 pr-3 text-sm font-medium",
         paddingByDepth,

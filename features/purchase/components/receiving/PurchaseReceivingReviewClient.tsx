@@ -172,7 +172,7 @@ export default function PurchaseReceivingReviewClient({
           <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="입고확인번호 / PO NO. / 제목 / 입고확인자 / 입고확인일 검색"
+            placeholder="입고검토 검색..."
             className="w-96"
           />
 

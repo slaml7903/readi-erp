@@ -21,7 +21,7 @@ export const navigation: NavigationItem[] = [
         children: [
           { label: "구매요청", href: "/purchase/request", status: "ready" },
           { label: "발주관리", href: "/purchase/order", status: "ready" },
-          { label: "입고관리", href: "/purchase/receiving", status: "ready" },
+          { label: "입고검토", href: "/purchase/receiving", status: "ready" },
           { label: "지출관리", status: "planned" },
         ],
       },
@@ -137,7 +137,7 @@ export function getBreadcrumbs(pathname: string): BreadcrumbItem[] {
     return [
       { label: "운영", href: "/purchase/request" },
       { label: "구매", href: "/purchase/request" },
-      { label: "입고관리", href: "/purchase/receiving" },
+      { label: "입고검토", href: "/purchase/receiving" },
       { label: "입고확인 등록" },
     ];
   }
@@ -146,8 +146,7 @@ export function getBreadcrumbs(pathname: string): BreadcrumbItem[] {
     return [
       { label: "운영", href: "/purchase/request" },
       { label: "구매", href: "/purchase/request" },
-      { label: "입고관리", href: "/purchase/receiving" },
-      { label: "입고확인 검토" },
+      { label: "입고검토" },
     ];
   }
 
@@ -155,7 +154,7 @@ export function getBreadcrumbs(pathname: string): BreadcrumbItem[] {
     return [
       { label: "운영", href: "/purchase/request" },
       { label: "구매", href: "/purchase/request" },
-      { label: "입고관리" },
+      { label: "입고검토" },
     ];
   }
 
@@ -180,6 +179,10 @@ export function getBreadcrumbs(pathname: string): BreadcrumbItem[] {
       { label: "운영", href: "/project" },
       { label: "프로젝트" },
     ];
+  }
+
+  if (pathname.startsWith("/planned")) {
+    return [{ label: "준비중" }];
   }
 
   return [{ label: "READi ERP" }];

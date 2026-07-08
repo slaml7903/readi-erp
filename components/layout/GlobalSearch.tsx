@@ -8,7 +8,7 @@ import type { GlobalSearchResult } from "@/features/search/services/global-searc
 function getTypeLabel(type: GlobalSearchResult["type"]) {
   if (type === "purchase-request") return "구매요청";
   if (type === "purchase-order") return "발주";
-  return "입고";
+  return "입고검토";
 }
 
 export default function GlobalSearch() {
@@ -76,7 +76,7 @@ export default function GlobalSearch() {
         onFocus={() => {
           if (visibleResults.length > 0) setIsOpen(true);
         }}
-        placeholder="PR번호, PO번호, 거래처, 품목 검색..."
+        placeholder="문서번호, 거래처, 프로젝트, 품목, 담당자 검색..."
         className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-slate-500"
       />
 
