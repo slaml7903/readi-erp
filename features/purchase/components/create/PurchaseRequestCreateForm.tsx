@@ -842,6 +842,8 @@ function VendorCombobox({
     (vendor) => vendor.id === selectedVendorRecordId
   );
 
+  const isNewVendor = value.trim().length > 0 && !selectedVendor;
+
   return (
     <div className="relative">
       <Input
@@ -867,38 +869,29 @@ function VendorCombobox({
         <div className="mt-1 text-[11px] text-green-600">
           선택됨: {selectedVendor.name}
         </div>
-      ) : value.trim() ? (
-        <div className="mt-1 text-[11px] text-blue-600">
-          신규 거래처로 등록됩니다.
+      ) : isNewVendor ? (
+        <div className="mt-1 text-[11px] leading-4 text-blue-600">
+          신규 거래처가 생성됩니다.
+          사업자등록증 URL과 통장사본 URL을 입력해야 저장됩니다.
         </div>
       ) : null}
 
-      {isOpen ? (
+      {isOpen && filteredVendors.length > 0 ? (
         <div className="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg">
-          {isLoading ? (
-            <div className="px-3 py-2 text-xs text-gray-500">
-              거래처를 불러오는 중입니다.
-            </div>
-          ) : filteredVendors.length > 0 ? (
-            filteredVendors.map((vendor) => (
-              <button
-                key={vendor.id}
-                type="button"
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  onSelect(orderId, vendor);
-                  setIsOpen(false);
-                }}
-                className="block w-full px-3 py-2 text-left text-sm text-gray-800 hover:bg-gray-100"
-              >
-                {vendor.name}
-              </button>
-            ))
-          ) : (
-            <div className="px-3 py-2 text-xs text-gray-500">
-              검색 결과가 없습니다. 입력값으로 신규 거래처가 생성됩니다.
-            </div>
-          )}
+          {filteredVendors.map((vendor) => (
+            <button
+              key={vendor.id}
+              type="button"
+              onMouseDown={(event) => {
+                event.preventDefault();
+                onSelect(orderId, vendor);
+                setIsOpen(false);
+              }}
+              className="block w-full px-3 py-2 text-left text-sm text-gray-800 hover:bg-gray-100"
+            >
+              {vendor.name}
+            </button>
+          ))}
         </div>
       ) : null}
     </div>

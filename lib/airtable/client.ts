@@ -29,6 +29,12 @@ type AirtableCreateRecordsResponse = {
   records: AirtableRecord[];
 };
 
+export type AirtableUploadFileInput = {
+  filename: string;
+  contentType: string;
+  file: string;
+};
+
 function chunkArray<T>(items: T[], size: number): T[][] {
   const chunks: T[][] = [];
 
@@ -180,4 +186,32 @@ export async function airtableCreateRecords(
   }
 
   return createdRecords;
+}
+
+export async function airtableUploadAttachment(
+  recordId: string,
+  attachmentFieldName: string,
+  fileInput: AirtableUploadFileInput
+): Promise<AirtableRecord> {
+  const url = new URL(
+    `https://content.airtable.com/v0/${baseId}/${encodeURIComponent(
+      recordId
+    )}/${encodeURIComponent(attachmentFieldName)}/uploadAttachment`
+  );
+
+  const response = await fetch(url.toString(), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(fileInput),
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`Failed to upload Airtable attachment: ${message}`);
+  }
+
+  return response.json();
 }
