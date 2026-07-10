@@ -24,3 +24,25 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+button,
+a,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:active,
+a:active,
+[role="button"]:active {
+  transition-duration: 75ms;
+}
+
+@keyframes readi-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.readi-spinner {
+  animation: readi-spin 0.8s linear infinite;
+}

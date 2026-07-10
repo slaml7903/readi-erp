@@ -27,7 +27,7 @@ function SidebarLink({ item, depth = 0 }: { item: NavigationItem; depth?: number
         prefetch={false}
         className={[
           "flex items-center justify-between rounded-lg py-2.5 pr-3 text-sm font-medium text-slate-400",
-          "hover:bg-slate-50 hover:text-slate-500",
+          "transition duration-150 hover:bg-slate-50 hover:text-slate-500 active:scale-[0.99] active:bg-slate-100",
           paddingByDepth,
         ].join(" ")}
       >
@@ -45,10 +45,11 @@ function SidebarLink({ item, depth = 0 }: { item: NavigationItem; depth?: number
       prefetch
       className={[
         "flex items-center justify-between rounded-lg py-2.5 pr-3 text-sm font-medium",
+        "transition duration-150 active:scale-[0.99]",
         paddingByDepth,
         isActive
-          ? "bg-slate-900 text-white"
-          : "text-slate-700 hover:bg-slate-100",
+          ? "bg-slate-900 text-white active:bg-slate-950"
+          : "text-slate-700 hover:bg-slate-100 active:bg-slate-200",
       ].join(" ")}
     >
       <span>{item.label}</span>
@@ -85,9 +86,10 @@ function SidebarGroup({
         onClick={onToggle}
         className={[
           "flex w-full items-center justify-between rounded-lg px-4 py-2.5 text-left text-sm font-semibold",
+          "transition duration-150 active:scale-[0.99]",
           hasActiveChild
-            ? "bg-slate-100 text-slate-900"
-            : "text-slate-700 hover:bg-slate-100",
+            ? "bg-slate-100 text-slate-900 active:bg-slate-200"
+            : "text-slate-700 hover:bg-slate-100 active:bg-slate-200",
         ].join(" ")}
       >
         <span>{item.label}</span>
@@ -150,10 +152,11 @@ function SidebarNestedGroup({
         onClick={onToggle}
         className={[
           "flex w-full items-center justify-between rounded-lg py-2.5 pr-3 text-left text-sm font-semibold",
+          "transition duration-150 active:scale-[0.99]",
           paddingByDepth,
           hasActiveChild
-            ? "bg-slate-100 text-slate-900"
-            : "text-slate-600 hover:bg-slate-100",
+            ? "bg-slate-100 text-slate-900 active:bg-slate-200"
+            : "text-slate-600 hover:bg-slate-100 active:bg-slate-200",
         ].join(" ")}
       >
         <span>{item.label}</span>
