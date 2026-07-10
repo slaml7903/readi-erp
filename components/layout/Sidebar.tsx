@@ -61,10 +61,18 @@ function SidebarLink({ item, depth = 0 }: { item: NavigationItem; depth?: number
   );
 }
 
-function SidebarGroup({ item }: { item: NavigationItem }) {
+function SidebarGroup({
+  item,
+  isOpen,
+  onToggle,
+}: {
+  item: NavigationItem;
+  isOpen: boolean;
+  onToggle: () => void;
+}) {
   const pathname = usePathname();
   const hasActiveChild = hasActivePath(item, pathname);
-  const [isOpen, setIsOpen] = useState(Boolean(hasActiveChild));
+  const [openNestedKey, setOpenNestedKey] = useState<string | null>(null);
 
   if (!item.children?.length) {
     return <SidebarLink item={item} />;
@@ -74,7 +82,7 @@ function SidebarGroup({ item }: { item: NavigationItem }) {
     <div>
       <button
         type="button"
-        onClick={() => setIsOpen((current) => !current)}
+        onClick={onToggle}
         className={[
           "flex w-full items-center justify-between rounded-lg px-4 py-2.5 text-left text-sm font-semibold",
           hasActiveChild
@@ -94,6 +102,16 @@ function SidebarGroup({ item }: { item: NavigationItem }) {
                 key={child.href ?? child.label}
                 item={child}
                 depth={1}
+                isOpen={
+                  openNestedKey === (child.href ?? child.label) ||
+                  (!openNestedKey && hasActivePath(child, pathname))
+                }
+                onToggle={() => {
+                  const childKey = child.href ?? child.label;
+                  setOpenNestedKey((current) =>
+                    current === childKey ? null : childKey
+                  );
+                }}
               />
             ) : (
               <SidebarLink
@@ -112,20 +130,24 @@ function SidebarGroup({ item }: { item: NavigationItem }) {
 function SidebarNestedGroup({
   item,
   depth,
+  isOpen,
+  onToggle,
 }: {
   item: NavigationItem;
   depth: number;
+  isOpen: boolean;
+  onToggle: () => void;
 }) {
   const pathname = usePathname();
   const hasActiveChild = hasActivePath(item, pathname);
-  const [isOpen, setIsOpen] = useState(Boolean(hasActiveChild));
+  const [openChildKey, setOpenChildKey] = useState<string | null>(null);
   const paddingByDepth = ["pl-4", "pl-7", "pl-10", "pl-12"][depth] ?? "pl-12";
 
   return (
     <div>
       <button
         type="button"
-        onClick={() => setIsOpen((current) => !current)}
+        onClick={onToggle}
         className={[
           "flex w-full items-center justify-between rounded-lg py-2.5 pr-3 text-left text-sm font-semibold",
           paddingByDepth,
@@ -146,6 +168,16 @@ function SidebarNestedGroup({
                 key={child.href ?? child.label}
                 item={child}
                 depth={depth + 1}
+                isOpen={
+                  openChildKey === (child.href ?? child.label) ||
+                  (!openChildKey && hasActivePath(child, pathname))
+                }
+                onToggle={() => {
+                  const childKey = child.href ?? child.label;
+                  setOpenChildKey((current) =>
+                    current === childKey ? null : childKey
+                  );
+                }}
               />
             ) : (
               <SidebarLink
@@ -162,6 +194,9 @@ function SidebarNestedGroup({
 }
 
 export default function Sidebar() {
+  const pathname = usePathname();
+  const [openGroupKey, setOpenGroupKey] = useState<string | null>(null);
+
   return (
     <aside className="w-64 shrink-0 border-r border-slate-200 bg-white p-4">
       <div className="mb-6 px-4">
@@ -169,9 +204,25 @@ export default function Sidebar() {
         <div className="text-xs text-slate-500">READi ROBUST MACHINE</div>
       </div>
       <nav className="space-y-2">
-        {navigation.map((item) => (
-          <SidebarGroup key={item.href ?? item.label} item={item} />
-        ))}
+        {navigation.map((item) => {
+          const itemKey = item.href ?? item.label;
+
+          return (
+            <SidebarGroup
+              key={itemKey}
+              item={item}
+              isOpen={
+                openGroupKey === itemKey ||
+                (!openGroupKey && hasActivePath(item, pathname))
+              }
+              onToggle={() =>
+                setOpenGroupKey((current) =>
+                  current === itemKey ? null : itemKey
+                )
+              }
+            />
+          );
+        })}
       </nav>
     </aside>
   );

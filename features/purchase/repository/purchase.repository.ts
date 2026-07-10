@@ -4,6 +4,14 @@ import {
   airtableFetchAll,
   airtableUploadAttachment,
 } from "@/lib/airtable/client";
+import {
+  removeUndefinedFields,
+  toAirtableAttachments,
+  toAirtableBoolean,
+  toAirtableNumber,
+  toAirtableString,
+  toAirtableStringArray,
+} from "@/lib/airtable/record";
 
 import type {
   AirtableAttachment,
@@ -21,81 +29,14 @@ type AirtableRecord = {
   fields: Record<string, unknown>;
 };
 
-type AirtableAttachmentRaw = {
-  id: string;
-  url: string;
-  filename: string;
-  size?: number;
-  type?: string;
-};
-
-function toString(value: unknown): string {
-  if (value === null || value === undefined) return "";
-
-  if (Array.isArray(value)) {
-    return value.map((item) => String(item)).join(", ");
-  }
-
-  return String(value);
-}
-
-function toStringArray(value: unknown): string[] | undefined {
-  if (!Array.isArray(value)) return undefined;
-
-  return value
-    .map((item) => String(item))
-    .filter((item) => item.length > 0);
-}
-
-function toNumber(value: unknown): number {
-  if (typeof value === "number") return value;
-
-  if (typeof value === "string") {
-    const parsed = Number(value.replaceAll(",", ""));
-    return Number.isNaN(parsed) ? 0 : parsed;
-  }
-
-  if (Array.isArray(value)) {
-    const first = value[0];
-
-    if (typeof first === "number") return first;
-
-    if (typeof first === "string") {
-      const parsed = Number(first.replaceAll(",", ""));
-      return Number.isNaN(parsed) ? 0 : parsed;
-    }
-  }
-
-  return 0;
-}
-
-function toBoolean(value: unknown): boolean | undefined {
-  if (typeof value === "boolean") return value;
-  return undefined;
-}
-
 function toAttachments(value: unknown): AirtableAttachment[] | undefined {
-  if (!Array.isArray(value)) return undefined;
-
-  const files = value
-    .map((item) => item as Partial<AirtableAttachmentRaw>)
-    .filter((item) => item.id && item.url && item.filename)
-    .map((item) => ({
-      id: String(item.id),
-      url: String(item.url),
-      filename: String(item.filename),
-      size: item.size,
-      type: item.type,
-    }));
-
-  return files.length > 0 ? files : undefined;
+  return toAirtableAttachments(value, (item) => item);
 }
 
-function removeUndefinedFields(fields: Record<string, unknown>) {
-  return Object.fromEntries(
-    Object.entries(fields).filter(([, value]) => value !== undefined)
-  );
-}
+const toString = toAirtableString;
+const toStringArray = toAirtableStringArray;
+const toNumber = toAirtableNumber;
+const toBoolean = toAirtableBoolean;
 
 function normalizeName(value: string) {
   return value.trim().replace(/\s+/g, " ").toLowerCase();

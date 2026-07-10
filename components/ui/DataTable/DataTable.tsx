@@ -2,6 +2,8 @@
 
 import { ReactNode, useMemo, useState } from "react";
 
+import EmptyState from "../EmptyState";
+
 export type DataTableColumn<T> = {
   key: keyof T & string;
   header: string;
@@ -119,9 +121,9 @@ export default function DataTable<T>({
               <tr>
                 <td
                   colSpan={columns.length}
-                  className="p-8 text-center text-gray-500"
+                  className="p-0"
                 >
-                  {emptyMessage}
+                  <EmptyState message={emptyMessage} />
                 </td>
               </tr>
             ) : (

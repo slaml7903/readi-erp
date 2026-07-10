@@ -3,6 +3,7 @@ import {
   StatusBadge,
   type DataTableColumn,
 } from "@/components/ui";
+import { formatCurrencyWon } from "@/lib/format";
 
 import type { PurchaseRequest } from "../types/purchase.type";
 
@@ -63,7 +64,7 @@ const columns: DataTableColumn<PurchaseRequest>[] = [
     align: "right",
     sortable: true,
     width: "140px",
-    render: (row) => `${row.totalAmount?.toLocaleString() ?? 0}원`,
+    render: (row) => formatCurrencyWon(row.totalAmount),
   },
 ];
 

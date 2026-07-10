@@ -80,9 +80,10 @@ export const navigation: NavigationItem[] = [
   },
   {
     label: "관리",
-    status: "planned",
+    status: "ready",
     children: [
       { label: "차량관리", href: "/vehicle", status: "ready" },
+      { label: "근태관리", href: "/management/attendance", status: "ready" },
       { label: "자산관리", status: "planned" },
       { label: "교육관리", status: "planned" },
       { label: "규정관리", status: "planned" },
@@ -178,6 +179,13 @@ export function getBreadcrumbs(pathname: string): BreadcrumbItem[] {
     return [
       { label: "운영", href: "/project" },
       { label: "프로젝트" },
+    ];
+  }
+
+  if (pathname.startsWith("/management/attendance")) {
+    return [
+      { label: "관리", href: "/management/attendance" },
+      { label: "근태관리" },
     ];
   }
 

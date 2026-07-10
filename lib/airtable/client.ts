@@ -1,6 +1,7 @@
 type AirtableFetchOptions = {
   pageSize?: number;
   cache?: RequestCache;
+  baseId?: string;
 };
 
 export type AirtableRecord = {
@@ -24,19 +25,29 @@ export type AirtableUploadFileInput = {
   file: string;
 };
 
-function getAirtableConfig() {
+type AirtableMutationOptions = {
+  baseId?: string;
+  typecast?: boolean;
+};
+
+function getAirtableToken() {
   const token = process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN;
-  const baseId = process.env.AIRTABLE_BASE_ID;
 
   if (!token) {
     throw new Error("AIRTABLE_PERSONAL_ACCESS_TOKEN is not defined");
   }
 
+  return token;
+}
+
+function getDefaultAirtableBaseId() {
+  const baseId = process.env.AIRTABLE_BASE_ID;
+
   if (!baseId) {
     throw new Error("AIRTABLE_BASE_ID is not defined");
   }
 
-  return { token, baseId };
+  return baseId;
 }
 
 function chunkArray<T>(items: T[], size: number): T[][] {
@@ -49,8 +60,8 @@ function chunkArray<T>(items: T[], size: number): T[][] {
   return chunks;
 }
 
-function createAirtableUrl(tableName: string) {
-  const { baseId } = getAirtableConfig();
+function createAirtableUrl(tableName: string, baseIdOverride?: string) {
+  const baseId = baseIdOverride ?? getDefaultAirtableBaseId();
 
   return new URL(
     `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}`
@@ -62,7 +73,7 @@ async function requestAirtable<T>(
   init: RequestInit,
   errorMessage: string
 ): Promise<T> {
-  const { token } = getAirtableConfig();
+  const token = getAirtableToken();
 
   const response = await fetch(url.toString(), {
     ...init,
@@ -87,7 +98,7 @@ export async function airtableFetch(
   const pageSize = options.pageSize ?? 100;
   const cache = options.cache ?? "force-cache";
 
-  const url = createAirtableUrl(tableName);
+  const url = createAirtableUrl(tableName, options.baseId);
 
   url.searchParams.set("pageSize", String(pageSize));
 
@@ -130,9 +141,10 @@ export async function airtableFetchRecord(
 async function airtableFetchPage(
   tableName: string,
   offset: string | undefined,
-  cache: RequestCache
+  cache: RequestCache,
+  baseId?: string
 ): Promise<AirtableResponse> {
-  const url = createAirtableUrl(tableName);
+  const url = createAirtableUrl(tableName, baseId);
 
   url.searchParams.set("pageSize", "100");
 
@@ -162,7 +174,7 @@ export async function airtableFetchAll(
   const cache = options.cache ?? "force-cache";
 
   do {
-    const data = await airtableFetchPage(tableName, offset, cache);
+    const data = await airtableFetchPage(tableName, offset, cache, options.baseId);
 
     records.push(...data.records);
     offset = data.offset;
@@ -173,9 +185,14 @@ export async function airtableFetchAll(
 
 export async function airtableCreateRecord(
   tableName: string,
-  fields: Record<string, unknown>
+  fields: Record<string, unknown>,
+  options: AirtableMutationOptions = {}
 ): Promise<AirtableRecord> {
-  const url = createAirtableUrl(tableName);
+  const url = createAirtableUrl(tableName, options.baseId);
+
+  if (options.typecast) {
+    url.searchParams.set("typecast", "true");
+  }
 
   return requestAirtable<AirtableRecord>(
     url,
@@ -255,7 +272,7 @@ export async function airtableUploadAttachment(
   attachmentFieldName: string,
   fileInput: AirtableUploadFileInput
 ): Promise<AirtableRecord> {
-  const { baseId } = getAirtableConfig();
+  const baseId = getDefaultAirtableBaseId();
   const url = new URL(
     `https://content.airtable.com/v0/${baseId}/${encodeURIComponent(
       recordId

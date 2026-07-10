@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Input, Select } from "@/components/ui";
+import { Button, SearchInput, Select } from "@/components/ui";
 
 interface PurchaseFilterBarProps {
   search: string;
@@ -30,10 +30,9 @@ export default function PurchaseFilterBar({
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-4">
       <div className="flex flex-wrap gap-3">
-        <Input
-          type="text"
+        <SearchInput
           value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
+          onChange={onSearchChange}
           placeholder="구매요청 검색..."
           className="w-72"
         />
