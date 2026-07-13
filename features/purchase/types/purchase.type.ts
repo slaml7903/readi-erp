@@ -1,5 +1,14 @@
-export type PurchaseRequestStatus = string;
-export type PurchaseOrderStatus = string;
+import type {
+  PurchaseOrderStatus,
+  PurchaseRequestStatus,
+} from "../constants/purchase-status";
+
+export type {
+  PurchaseOrderStatus,
+  PurchaseReceivingReviewStatus,
+  PurchaseRequestStatus,
+} from "../constants/purchase-status";
+
 export type TeamName = string;
 
 export interface AirtableAttachment {

@@ -13,17 +13,27 @@ import {
   ATTENDANCE_FIELDS,
   ATTENDANCE_TABLES,
 } from "../config/attendance.config";
+import { getMonthRange, getTodayDate } from "@/lib/date";
 import type {
   AttendanceEmployee,
   AttendanceEvent,
   CreateAttendanceRequestInput,
 } from "../types/attendance.type";
+import {
+  ATTENDANCE_EMPLOYEES_TAG,
+  getAffectedAttendanceMonths,
+  getAttendanceEventsTag,
+  getAttendanceTodayTag,
+  isDateInRange,
+} from "../utils/attendance-cache";
 
 type AirtableRecord = {
   id: string;
   fields: Record<string, unknown>;
   createdTime?: string;
 };
+
+const ATTENDANCE_RANGED_TYPES = ["연차", "출장"] as const;
 
 function createEmployeeMap(records: AirtableRecord[]) {
   const map = new Map<string, AttendanceEmployee>();
@@ -44,7 +54,44 @@ function createEmployeeMap(records: AirtableRecord[]) {
 }
 
 function isRangedType(type: string) {
-  return type === "연차" || type === "출장";
+  return ATTENDANCE_RANGED_TYPES.includes(
+    type as (typeof ATTENDANCE_RANGED_TYPES)[number]
+  );
+}
+
+function airtableField(fieldName: string) {
+  return `{${fieldName.replaceAll("}", "\\}")}}`;
+}
+
+function airtableString(value: string) {
+  return `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
+}
+
+function createRangedTypeFormula() {
+  return `OR(${ATTENDANCE_RANGED_TYPES.map(
+    (type) =>
+      `${airtableField(ATTENDANCE_FIELDS.attendanceType)}=${airtableString(type)}`
+  ).join(",")})`;
+}
+
+function createMonthlyAttendanceFormula(month: string) {
+  const { start, end } = getMonthRange(month);
+  const startField = airtableField(ATTENDANCE_FIELDS.startDate);
+  const endField = airtableField(ATTENDANCE_FIELDS.endDate);
+  const rangedTypeFormula = createRangedTypeFormula();
+  const monthStart = `DATETIME_PARSE(${airtableString(start)})`;
+  const monthEnd = `DATETIME_PARSE(${airtableString(end)})`;
+
+  return `OR(AND(${rangedTypeFormula},IS_BEFORE(${startField},DATEADD(${monthEnd},1,"day")),IS_AFTER(IF(${endField},${endField},${startField}),DATEADD(${monthStart},-1,"day"))),AND(NOT(${rangedTypeFormula}),IS_AFTER(${startField},DATEADD(${monthStart},-1,"day")),IS_BEFORE(${startField},DATEADD(${monthEnd},1,"day"))))`;
+}
+
+function createDailyAttendanceFormula(date: string) {
+  const startField = airtableField(ATTENDANCE_FIELDS.startDate);
+  const endField = airtableField(ATTENDANCE_FIELDS.endDate);
+  const rangedTypeFormula = createRangedTypeFormula();
+  const targetDate = `DATETIME_PARSE(${airtableString(date)})`;
+
+  return `OR(AND(${rangedTypeFormula},IS_BEFORE(${startField},DATEADD(${targetDate},1,"day")),IS_AFTER(IF(${endField},${endField},${startField}),DATEADD(${targetDate},-1,"day"))),AND(NOT(${rangedTypeFormula}),IS_SAME(${startField},${targetDate},"day")))`;
 }
 
 function normalizeAttendanceType(value: unknown) {
@@ -120,7 +167,9 @@ function normalizeAttendanceRecord(
 export async function getAttendanceEmployees(): Promise<AttendanceEmployee[]> {
   const records = await airtableFetchAll(ATTENDANCE_TABLES.master, {
     baseId: ATTENDANCE_BASE_ID,
-    cache: "no-store",
+    cache: "force-cache",
+    revalidate: 300,
+    tags: [ATTENDANCE_EMPLOYEES_TAG],
   });
 
   return records.map((record) => {
@@ -136,15 +185,28 @@ export async function getAttendanceEmployees(): Promise<AttendanceEmployee[]> {
   });
 }
 
-export async function getAttendanceEvents(): Promise<AttendanceEvent[]> {
+async function getAttendanceEventsByFormula({
+  filterByFormula,
+  revalidate,
+  tags,
+}: {
+  filterByFormula: string;
+  revalidate: number;
+  tags: string[];
+}): Promise<AttendanceEvent[]> {
   const [employeeRecords, requestRecords] = await Promise.all([
     airtableFetchAll(ATTENDANCE_TABLES.master, {
       baseId: ATTENDANCE_BASE_ID,
-      cache: "no-store",
+      cache: "force-cache",
+      revalidate: 300,
+      tags: [ATTENDANCE_EMPLOYEES_TAG],
     }),
     airtableFetchAll(ATTENDANCE_TABLES.requests, {
       baseId: ATTENDANCE_BASE_ID,
-      cache: "no-store",
+      cache: "force-cache",
+      revalidate,
+      tags,
+      filterByFormula,
     }),
   ]);
 
@@ -155,9 +217,46 @@ export async function getAttendanceEvents(): Promise<AttendanceEvent[]> {
     .filter((event): event is AttendanceEvent => Boolean(event));
 }
 
+export async function getAttendanceEventsByMonth(
+  month: string
+): Promise<AttendanceEvent[]> {
+  return await getAttendanceEventsByFormula({
+    filterByFormula: createMonthlyAttendanceFormula(month),
+    revalidate: 60,
+    tags: [getAttendanceEventsTag(month)],
+  });
+}
+
+export async function getAttendanceEventsByDate(
+  date: string
+): Promise<AttendanceEvent[]> {
+  return await getAttendanceEventsByFormula({
+    filterByFormula: createDailyAttendanceFormula(date),
+    revalidate: 60,
+    tags: [getAttendanceTodayTag(date)],
+  });
+}
+
+export async function getAttendanceEvents(
+  month: string
+): Promise<AttendanceEvent[]> {
+  return await getAttendanceEventsByMonth(month);
+}
+
 export async function createAttendanceRequest(
   input: CreateAttendanceRequestInput
 ) {
+  const today = getTodayDate();
+  const affectedMonths = getAffectedAttendanceMonths(
+    input.startDate,
+    input.endDate || input.startDate
+  );
+  const revalidateTags = affectedMonths.map(getAttendanceEventsTag);
+
+  if (isDateInRange(today, input.startDate, input.endDate || input.startDate)) {
+    revalidateTags.push(getAttendanceTodayTag(today));
+  }
+
   return await airtableCreateRecord(
     ATTENDANCE_TABLES.requests,
     removeEmptyFields({
@@ -173,6 +272,7 @@ export async function createAttendanceRequest(
     {
       baseId: ATTENDANCE_BASE_ID,
       typecast: true,
+      revalidateTags,
     }
   );
 }

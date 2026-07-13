@@ -2,6 +2,8 @@
 
 import { Button, SearchInput, Select } from "@/components/ui";
 
+import { PURCHASE_REQUEST_STATUS_OPTIONS } from "../constants/purchase-status";
+
 interface PurchaseFilterBarProps {
   search: string;
   status: string;
@@ -42,11 +44,11 @@ export default function PurchaseFilterBar({
           onChange={(e) => onStatusChange(e.target.value)}
         >
           <option value="">전체 상태</option>
-          <option value="요청됨">요청됨</option>
-          <option value="승인완료">승인완료</option>
-          <option value="보류">보류</option>
-          <option value="반려">반려</option>
-          <option value="취소">취소</option>
+          {PURCHASE_REQUEST_STATUS_OPTIONS.map((statusOption) => (
+            <option key={statusOption} value={statusOption}>
+              {statusOption}
+            </option>
+          ))}
         </Select>
 
         <Select value={team} onChange={(e) => onTeamChange(e.target.value)}>

@@ -95,6 +95,8 @@ export default function PurchaseReceivingSubmitForm({
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    if (isSubmitting) return;
+
     if (!validateForm()) return;
 
     try {

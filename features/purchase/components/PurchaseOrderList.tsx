@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 
 import { Button, Card, Input, Select } from "@/components/ui";
 
+import { PURCHASE_ORDER_STATUS_OPTIONS } from "../constants/purchase-status";
 import type { PurchaseOrderSummary, PurchaseRequest } from "../types/purchase.type";
 
 type PurchaseOrderListProps = {
@@ -74,10 +75,11 @@ export default function PurchaseOrderList({
             className="w-44"
           >
             <option value="">전체 상태</option>
-            <option value="발주완료">발주완료</option>
-            <option value="배송중">배송중</option>
-            <option value="입고완료">입고완료</option>
-            <option value="취소">취소</option>
+            {PURCHASE_ORDER_STATUS_OPTIONS.map((statusOption) => (
+              <option key={statusOption} value={statusOption}>
+                {statusOption}
+              </option>
+            ))}
           </Select>
 
           <Button

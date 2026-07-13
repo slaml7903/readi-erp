@@ -12,6 +12,10 @@ import {
   type DataTableColumn,
 } from "@/components/ui";
 
+import {
+  PURCHASE_RECEIVING_REVIEW_FILTER,
+  PURCHASE_RECEIVING_REVIEW_STATUS,
+} from "../../constants/purchase-status";
 import type { PurchaseReceivingReviewItem } from "../../types/purchase.type";
 
 type PurchaseReceivingReviewClientProps = {
@@ -42,13 +46,17 @@ export default function PurchaseReceivingReviewClient({
           receiving.title,
           receiving.receivingChecker,
           receiving.receivingDate,
-          receiving.reviewCompleted ? "검토완료" : "검토대기",
+          receiving.reviewCompleted
+            ? PURCHASE_RECEIVING_REVIEW_STATUS.COMPLETED
+            : PURCHASE_RECEIVING_REVIEW_STATUS.PENDING,
         ].some((value) => value?.toLowerCase().includes(keyword));
 
       const statusMatched =
         !reviewStatus ||
-        (reviewStatus === "completed" && receiving.reviewCompleted) ||
-        (reviewStatus === "pending" && !receiving.reviewCompleted);
+        (reviewStatus === PURCHASE_RECEIVING_REVIEW_FILTER.COMPLETED &&
+          receiving.reviewCompleted) ||
+        (reviewStatus === PURCHASE_RECEIVING_REVIEW_FILTER.PENDING &&
+          !receiving.reviewCompleted);
 
       return keywordMatched && statusMatched;
     });
@@ -56,6 +64,8 @@ export default function PurchaseReceivingReviewClient({
 
   const handleCompleteReview = useCallback(
     async (row: PurchaseReceivingReviewItem) => {
+      if (processingId) return;
+
       if (row.reviewCompleted) {
         alert("이미 검토완료된 입고확인입니다.");
         return;
@@ -93,7 +103,7 @@ export default function PurchaseReceivingReviewClient({
         setProcessingId(null);
       }
     },
-    [router]
+    [processingId, router]
   );
 
   const columns = useMemo<DataTableColumn<PurchaseReceivingReviewItem>[]>(
@@ -182,8 +192,12 @@ export default function PurchaseReceivingReviewClient({
             className="w-44"
           >
             <option value="">전체 검토상태</option>
-            <option value="pending">검토대기</option>
-            <option value="completed">검토완료</option>
+            <option value={PURCHASE_RECEIVING_REVIEW_FILTER.PENDING}>
+              {PURCHASE_RECEIVING_REVIEW_STATUS.PENDING}
+            </option>
+            <option value={PURCHASE_RECEIVING_REVIEW_FILTER.COMPLETED}>
+              {PURCHASE_RECEIVING_REVIEW_STATUS.COMPLETED}
+            </option>
           </Select>
 
           <Button

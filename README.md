@@ -2,6 +2,8 @@
 
 > Ready Robust Machine 통합 ERP 프로젝트
 
+현재 상태: MVP 개발 중 (`v0.1.0`)
+
 ---
 
 # 프로젝트 소개
@@ -37,7 +39,7 @@ READi ERP는 Readi Robust Machine의 업무를 하나의 웹 시스템으로 통
 
 # 프로젝트 목표
 
-## Version 1
+## v0.1.0 개발 범위
 
 - Dashboard
 - 구매관리

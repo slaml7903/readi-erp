@@ -1,3 +1,4 @@
+import { PURCHASE_RECEIVING_REVIEW_STATUS } from "../../constants/purchase-status";
 import type { PurchaseReceivingSummary } from "../../types/purchase.type";
 import { AttachmentList, DetailItem } from "./detail.parts";
 
@@ -21,7 +22,9 @@ export default function ReceivingSummaryCard({
               : "bg-yellow-100 text-yellow-700"
           }`}
         >
-          {receiving.reviewCompleted ? "검토완료" : "검토대기"}
+          {receiving.reviewCompleted
+            ? PURCHASE_RECEIVING_REVIEW_STATUS.COMPLETED
+            : PURCHASE_RECEIVING_REVIEW_STATUS.PENDING}
         </span>
       </div>
 

@@ -505,6 +505,8 @@ export default function PurchaseRequestCreateForm() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    if (isSubmitting) return;
+
     if (!validateForm()) return;
 
     try {

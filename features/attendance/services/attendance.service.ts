@@ -1,10 +1,11 @@
 import {
   createAttendanceRequest,
   getAttendanceEmployees,
-  getAttendanceEvents,
+  getAttendanceEventsByDate,
+  getAttendanceEventsByMonth,
 } from "../repository/attendance.repository";
 import { countUniqueBy, parseMultiValue, uniqueValues } from "@/lib/data";
-import { getMonthRange, getTodayDate } from "@/lib/date";
+import { getTodayDate } from "@/lib/date";
 
 import type {
   AttendanceDashboardData,
@@ -27,16 +28,6 @@ export class AttendanceRequestValidationError extends Error {
 function normalizeMonth(month?: string) {
   if (month && /^\d{4}-\d{2}$/.test(month)) return month;
   return getTodayDate().slice(0, 7);
-}
-
-function overlapsMonth(event: AttendanceEvent, month: string) {
-  const range = getMonthRange(month);
-
-  if (event.attendanceType === "연차" || event.attendanceType === "출장") {
-    return event.startDate <= range.end && event.endDate >= range.start;
-  }
-
-  return event.startDate >= range.start && event.startDate <= range.end;
 }
 
 function matchesFilters(event: AttendanceEvent, filters: AttendanceFilters) {
@@ -77,14 +68,9 @@ function isTodayAttendanceEvent(event: AttendanceEvent, today: string) {
 }
 
 function createSummary(
-  events: AttendanceEvent[],
+  todayEvents: AttendanceEvent[],
   activeEmployeeCount: number
 ): AttendanceSummary {
-  const today = getTodayDate();
-  const todayEvents = events.filter((event) =>
-    isTodayAttendanceEvent(event, today)
-  );
-
   const annualLeaveCount = countUniqueEmployees(todayEvents, "연차");
   const businessTripCount = countUniqueEmployees(todayEvents, "출장");
   const morningHalfDayCount = countUniqueEmployees(todayEvents, "오전 반차");
@@ -112,44 +98,58 @@ function createSummary(
   };
 }
 
-export async function fetchAttendanceDashboard(
-  filters: AttendanceFilters
-): Promise<AttendanceDashboardData> {
-  const month = normalizeMonth(filters.month);
-  const [events, employees] = await Promise.all([
-    getAttendanceEvents(),
-    getAttendanceEmployees(),
-  ]);
+async function fetchAttendanceMonthData(
+  filters: AttendanceFilters,
+  month: string
+) {
+  const events = await getAttendanceEventsByMonth(month);
 
-  const filterOptions = {
-    departments: uniqueValues(employees, (employee) => employee.department),
-    types: uniqueValues(events, (event) => event.attendanceType),
-  };
-
-  const filteredEvents = events
+  return events
     .filter((event) => !event.hasDateError)
-    .filter((event) => overlapsMonth(event, month))
     .filter((event) => matchesFilters(event, { ...filters, month }))
     .sort((a, b) => {
       if (a.startDate !== b.startDate) return a.startDate.localeCompare(b.startDate);
       return a.employeeName.localeCompare(b.employeeName, "ko");
     });
+}
 
-  const validEvents = events.filter((event) => !event.hasDateError);
+async function fetchTodayAttendanceSummary(activeEmployeeCount: number) {
   const today = getTodayDate();
-  const todayEvents = validEvents.filter((event) =>
-    isTodayAttendanceEvent(event, today)
+  const todayEvents = (await getAttendanceEventsByDate(today)).filter(
+    (event) => !event.hasDateError && isTodayAttendanceEvent(event, today)
   );
+
+  return {
+    summary: createSummary(todayEvents, activeEmployeeCount),
+    todayEvents,
+  };
+}
+
+export async function fetchAttendanceDashboard(
+  filters: AttendanceFilters
+): Promise<AttendanceDashboardData> {
+  const month = normalizeMonth(filters.month);
+  const [events, employees] = await Promise.all([
+    fetchAttendanceMonthData(filters, month),
+    getAttendanceEmployees(),
+  ]);
 
   const activeEmployees = employees.filter((employee) => {
     const status = employee.status.trim();
     return status.includes("재직") && !status.includes("퇴");
   });
+  const { summary, todayEvents } = await fetchTodayAttendanceSummary(
+    activeEmployees.length
+  );
+  const filterOptions = {
+    departments: uniqueValues(employees, (employee) => employee.department),
+    types: REQUEST_TYPES,
+  };
 
   return {
     month,
-    events: filteredEvents,
-    summary: createSummary(validEvents, activeEmployees.length),
+    events,
+    summary,
     summaryDetails: {
       activeEmployees,
       todayEvents,

@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 
 import {
+  AirtableRepositoryError,
+  logAirtableRepositoryError,
+} from "@/lib/airtable/errors/airtable-repository.error";
+import {
   AttendanceRequestValidationError,
   fetchAttendanceDashboard,
   submitAttendanceRequest,
@@ -21,7 +25,19 @@ export async function GET(request: Request) {
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error(error);
+    if (error instanceof AirtableRepositoryError) {
+      logAirtableRepositoryError("attendance-api", error);
+
+      return NextResponse.json(
+        { message: "근태관리 데이터를 조회하는 중 외부 데이터베이스 오류가 발생했습니다." },
+        { status: 502 }
+      );
+    }
+
+    console.error({
+      scope: "attendance-api",
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
 
     return NextResponse.json(
       { message: "근태관리 데이터를 조회하는 중 오류가 발생했습니다." },
@@ -44,7 +60,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: error.message }, { status: 400 });
     }
 
-    console.error(error);
+    if (error instanceof AirtableRepositoryError) {
+      logAirtableRepositoryError("attendance-request-api", error);
+
+      return NextResponse.json(
+        { message: "근태 신청 등록 중 외부 데이터베이스 오류가 발생했습니다." },
+        { status: 502 }
+      );
+    }
+
+    console.error({
+      scope: "attendance-request-api",
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
 
     return NextResponse.json(
       { message: "근태 신청 등록 중 오류가 발생했습니다." },

@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 
-import {
-  approvePurchaseReceivingReview,
-  PurchaseReceivingValidationError,
-} from "@/features/purchase/services/receiving.service";
+import { createPurchaseApiErrorResponse } from "@/features/purchase/api/purchase-api-error";
+import { approvePurchaseReceivingReview } from "@/features/purchase/services/receiving.service";
 
 export async function POST(
   _request: Request,
@@ -19,19 +17,9 @@ export async function POST(
       message: "검토완료 처리되었고 발주 상태가 입고완료로 변경되었습니다.",
     });
   } catch (error) {
-    if (error instanceof PurchaseReceivingValidationError) {
-      return NextResponse.json({ message: error.message }, { status: 400 });
-    }
-
-    if (error instanceof Error && error.message.includes("이미 검토완료")) {
-      return NextResponse.json({ message: error.message }, { status: 409 });
-    }
-
-    console.error(error);
-
-    return NextResponse.json(
-      { message: "검토완료 처리 중 오류가 발생했습니다." },
-      { status: 500 }
-    );
+    return createPurchaseApiErrorResponse(error, {
+      scope: "purchase-receiving-review-api",
+      fallbackMessage: "검토완료 처리 중 오류가 발생했습니다.",
+    });
   }
 }

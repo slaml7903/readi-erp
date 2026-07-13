@@ -2,8 +2,10 @@ import {
   airtableCreateRecord,
   airtableCreateRecords,
   airtableFetchAll,
+  airtableFetchRecord,
   airtableUploadAttachment,
 } from "@/lib/airtable/client";
+import { AirtableRepositoryError } from "@/lib/airtable/errors/airtable-repository.error";
 import {
   removeUndefinedFields,
   toAirtableAttachments,
@@ -13,6 +15,11 @@ import {
   toAirtableStringArray,
 } from "@/lib/airtable/record";
 
+import { PURCHASE_REQUEST_STATUS } from "../constants/purchase-status";
+import {
+  normalizePurchaseOrderStatus,
+  normalizePurchaseRequestStatus,
+} from "../utils/purchase-status";
 import type {
   AirtableAttachment,
   CreatePurchaseOrderInput,
@@ -40,6 +47,10 @@ const toBoolean = toAirtableBoolean;
 
 function normalizeName(value: string) {
   return value.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function isAirtableNotFoundError(error: unknown) {
+  return error instanceof AirtableRepositoryError && error.status === 404;
 }
 
 export async function getPurchaseRequests(): Promise<PurchaseRequest[]> {
@@ -115,7 +126,7 @@ export async function getPurchaseRequests(): Promise<PurchaseRequest[]> {
       projectIds,
       projectNames,
 
-      status: toString(fields["상태"]) || undefined,
+      status: normalizePurchaseRequestStatus(fields["상태"]),
 
       approvalFiles: toAttachments(fields["PR 승인"]),
       requestFormFiles: toAttachments(fields["구매요청서"]),
@@ -144,6 +155,30 @@ export async function getPurchaseVendors(): Promise<PurchaseVendorOption[]> {
     }))
     .filter((vendor) => vendor.name.length > 0)
     .sort((a, b) => a.name.localeCompare(b.name, "ko"));
+}
+
+export async function getVendorById(
+  vendorRecordId: string
+): Promise<PurchaseVendorOption | undefined> {
+  try {
+    const record = await airtableFetchRecord("05.Vendor", vendorRecordId, {
+      cache: "no-store",
+      fields: ["공급업체명"],
+    });
+
+    const name = toString(record.fields["공급업체명"]);
+
+    return {
+      id: record.id,
+      name,
+    };
+  } catch (error) {
+    if (isAirtableNotFoundError(error)) {
+      return undefined;
+    }
+
+    throw error;
+  }
 }
 
 async function resolveVendorRecordIdsByOrder(
@@ -319,7 +354,7 @@ export async function createPurchaseRequest(
       요청자: input.requester,
       요청일: input.requestDate || undefined,
       필요일자: input.requiredDate || undefined,
-      상태: "요청됨",
+      상태: PURCHASE_REQUEST_STATUS.REQUESTED,
       비고: input.memo || undefined,
     })
   );
@@ -407,7 +442,7 @@ function createOrderSummaryMap(
       id: record.id,
       poNo,
       title: toString(fields["제목"]) || undefined,
-      status: toString(fields["상태"]) || undefined,
+      status: normalizePurchaseOrderStatus(fields["상태"]),
       orderDate: toString(fields["발주일"]) || undefined,
       expectedReceivingDate: toString(fields["예상 입고일"]) || undefined,
       receivingChecker: toString(fields["입고확인자"]) || undefined,

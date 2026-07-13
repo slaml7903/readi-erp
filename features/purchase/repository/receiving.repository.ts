@@ -7,10 +7,18 @@ import {
   type AirtableRecord,
   type AirtableUploadFileInput,
 } from "@/lib/airtable/client";
+import { AirtableRepositoryError } from "@/lib/airtable/errors/airtable-repository.error";
 
+import {
+  PURCHASE_ORDER_STATUS,
+  PURCHASE_RECEIVING_REVIEW_STATUS,
+} from "../constants/purchase-status";
+import { normalizePurchaseOrderStatus } from "../utils/purchase-status";
 import type {
   AirtableAttachment,
   PurchaseOrderItemSummary,
+  PurchaseOrderStatus,
+  PurchaseReceivingReviewStatus,
   PurchaseReceivingOrderDetail,
   PurchaseReceivingReviewItem,
   SubmitPurchaseReceivingInput,
@@ -82,6 +90,14 @@ function removeUndefinedFields(fields: Record<string, unknown>) {
   return Object.fromEntries(
     Object.entries(fields).filter(([, value]) => value !== undefined)
   );
+}
+
+function escapeAirtableFormulaString(value: string) {
+  return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
+}
+
+function isAirtableNotFoundError(error: unknown) {
+  return error instanceof AirtableRepositoryError && error.status === 404;
 }
 
 function createVendorNameMap(records: AirtableRecord[]) {
@@ -170,13 +186,64 @@ export async function getReceivingOrderDetail(
     id: orderRecord.id,
     poNo: toString(orderFields["발주번호"]),
     title: toString(orderFields["제목"]) || undefined,
-    status: toString(orderFields["상태"]) || undefined,
+    status: normalizePurchaseOrderStatus(orderFields["상태"]),
     expectedReceivingDate: toString(orderFields["예상 입고일"]) || undefined,
     receivingChecker: toString(orderFields["입고확인자"]) || undefined,
     vendorNames: vendorRecordIds
       ?.map((vendorRecordId) => vendorNameMap.get(vendorRecordId))
       .filter((vendorName): vendorName is string => Boolean(vendorName)),
     items: poItems,
+  };
+}
+
+export type PurchaseOrderReceivingSafetyContext = {
+  id: string;
+  poNo: string;
+  status?: PurchaseOrderStatus;
+  items: PurchaseOrderItemSummary[];
+};
+
+export async function getPurchaseOrderReceivingSafetyContext(
+  orderRecordId: string
+): Promise<PurchaseOrderReceivingSafetyContext | undefined> {
+  let orderRecord: AirtableRecord;
+
+  try {
+    orderRecord = await airtableFetchRecord(ORDER_TABLE, orderRecordId, {
+      cache: "no-store",
+      fields: ["발주번호", "상태"],
+    });
+  } catch (error) {
+    if (isAirtableNotFoundError(error)) {
+      return undefined;
+    }
+
+    throw error;
+  }
+  const poNo = toString(orderRecord.fields["발주번호"]);
+  const orderItemRecords = poNo
+    ? await airtableFetchAll(ORDER_ITEM_TABLE, {
+      cache: "no-store",
+      fields: [
+        "PO NO.",
+        "발주상세(모델명)",
+        "수량",
+        "단가",
+        "총액",
+        "vat포함",
+        "비고",
+      ],
+      filterByFormula: `FIND("${escapeAirtableFormulaString(
+        poNo
+      )}", ARRAYJOIN({PO NO.})) > 0`,
+    })
+    : [];
+
+  return {
+    id: orderRecord.id,
+    poNo,
+    status: normalizePurchaseOrderStatus(orderRecord.fields["상태"]),
+    items: orderItemRecords.map(mapOrderItem),
   };
 }
 
@@ -201,6 +268,52 @@ export async function getReceivingReviewItems(): Promise<
         String(a.receivingDate ?? "")
       );
     });
+}
+
+export type ReceivingSafetyContext = {
+  id: string;
+  receivingNo: string;
+  orderRecordIds?: string[];
+  receivingChecker?: string;
+  receivingDate?: string;
+  reviewCompleted: boolean;
+  reviewStatus: PurchaseReceivingReviewStatus;
+};
+
+export async function getReceivingsByOrderId(
+  orderRecordId: string
+): Promise<ReceivingSafetyContext[]> {
+  const orderRecord = await airtableFetchRecord(ORDER_TABLE, orderRecordId, {
+    cache: "no-store",
+    fields: ["발주번호"],
+  });
+  const poNo = toString(orderRecord.fields["발주번호"]);
+
+  if (!poNo) return [];
+
+  const records = await airtableFetchAll(RECEIVING_TABLE, {
+    cache: "no-store",
+    fields: ["입고확인", "PO NO.", "입고확인자", "입고확인일", "검토완료"],
+    filterByFormula: `FIND("${escapeAirtableFormulaString(
+      poNo
+    )}", ARRAYJOIN({PO NO.})) > 0`,
+  });
+
+  return records.map((record) => {
+    const reviewCompleted = toBoolean(record.fields["검토완료"]);
+
+    return {
+      id: record.id,
+      receivingNo: toString(record.fields["입고확인"]),
+      orderRecordIds: toStringArray(record.fields["PO NO."]),
+      receivingChecker: toString(record.fields["입고확인자"]) || undefined,
+      receivingDate: toString(record.fields["입고확인일"]) || undefined,
+      reviewCompleted,
+      reviewStatus: reviewCompleted
+        ? PURCHASE_RECEIVING_REVIEW_STATUS.COMPLETED
+        : PURCHASE_RECEIVING_REVIEW_STATUS.PENDING,
+    };
+  });
 }
 
 export async function createReceivingRecord(
@@ -246,48 +359,58 @@ async function uploadReceivingAttachment(
   return await airtableUploadAttachment(receivingRecordId, fieldName, file);
 }
 
-export async function completeReceivingReview(receivingRecordId: string) {
-  const receivingRecord = await airtableFetchRecord(
-    RECEIVING_TABLE,
-    receivingRecordId,
-    { cache: "no-store" }
-  );
+export async function getReceivingReviewApprovalContext(
+  receivingRecordId: string
+) {
+  let receivingRecord: AirtableRecord;
 
-  if (toBoolean(receivingRecord.fields["검토완료"])) {
-    throw new Error("이미 검토완료된 입고확인입니다.");
-  }
-
-  const orderRecordId = toStringArray(receivingRecord.fields["PO NO."])?.[0];
-
-  if (!orderRecordId) {
-    throw new Error("연결된 발주가 없는 입고확인입니다.");
-  }
-
-  const reviewedReceivingRecord = await airtableUpdateRecord(
-    RECEIVING_TABLE,
-    receivingRecordId,
-    {
-      검토완료: true,
+  try {
+    receivingRecord = await airtableFetchRecord(
+      RECEIVING_TABLE,
+      receivingRecordId,
+      { cache: "no-store" }
+    );
+  } catch (error) {
+    if (isAirtableNotFoundError(error)) {
+      return undefined;
     }
-  );
 
-  const completedOrderRecord = await markOrderReceivingCompleted(orderRecordId);
+    throw error;
+  }
 
   return {
-    receiving: reviewedReceivingRecord,
-    order: completedOrderRecord,
+    reviewCompleted: toBoolean(receivingRecord.fields["검토완료"]),
+    orderRecordId: toStringArray(receivingRecord.fields["PO NO."])?.[0],
   };
 }
 
-async function markOrderReceivingCompleted(orderRecordId: string) {
-  return await airtableUpdateRecord(ORDER_TABLE, orderRecordId, {
-    상태: "입고완료",
+export async function markReceivingReviewCompleted(receivingRecordId: string) {
+  return await airtableUpdateRecord(RECEIVING_TABLE, receivingRecordId, {
+    검토완료: true,
   });
 }
 
-export async function evaluatePurchaseRequestReceivingStatus() {
-  return {
-    skipped: true,
-    reason: "PR 입고완료 판정은 다음 단계에서 구현합니다.",
-  };
+export async function getPurchaseOrderStatus(orderRecordId: string) {
+  let orderRecord: AirtableRecord;
+
+  try {
+    orderRecord = await airtableFetchRecord(ORDER_TABLE, orderRecordId, {
+      cache: "no-store",
+      fields: ["상태"],
+    });
+  } catch (error) {
+    if (isAirtableNotFoundError(error)) {
+      return undefined;
+    }
+
+    throw error;
+  }
+
+  return normalizePurchaseOrderStatus(orderRecord.fields["상태"]);
+}
+
+export async function markOrderReceivingCompleted(orderRecordId: string) {
+  return await airtableUpdateRecord(ORDER_TABLE, orderRecordId, {
+    상태: PURCHASE_ORDER_STATUS.RECEIVED,
+  });
 }
