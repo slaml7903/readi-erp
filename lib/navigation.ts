@@ -189,6 +189,13 @@ export function getBreadcrumbs(pathname: string): BreadcrumbItem[] {
     ];
   }
 
+  if (pathname.startsWith("/vehicle")) {
+    return [
+      { label: "관리", href: "/vehicle" },
+      { label: "법인차량 운행관리" },
+    ];
+  }
+
   if (pathname.startsWith("/planned")) {
     return [{ label: "준비중" }];
   }
