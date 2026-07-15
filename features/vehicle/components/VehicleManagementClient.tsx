@@ -6,8 +6,8 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui";
 
 import type {
-  VehicleLogData,
   VehicleLogFilters,
+  VehicleLogQueryResult,
   VehiclePageData,
 } from "../types/vehicle.type";
 import VehicleLogFiltersForm from "./VehicleLogFilters";
@@ -30,7 +30,9 @@ async function requestVehicleLogs(filters: VehicleLogFilters) {
   const response = await fetch(
     `/api/vehicle/logs?${createVehicleQuery(filters).toString()}`
   );
-  const body = (await response.json()) as VehicleLogData | { message?: string };
+  const body = (await response.json()) as
+    | VehicleLogQueryResult
+    | { message?: string };
 
   if (!response.ok) {
     throw new Error(
@@ -40,26 +42,29 @@ async function requestVehicleLogs(filters: VehicleLogFilters) {
     );
   }
 
-  return body as VehicleLogData;
+  return body as VehicleLogQueryResult;
 }
 
 export default function VehicleManagementClient({ data }: { data: VehiclePageData }) {
   const router = useRouter();
   const [logData, setLogData] = useState(data.logData);
   const [filters, setFilters] = useState(data.filters);
-  const [filterApplied, setFilterApplied] = useState(data.filterApplied);
+  const [visibleCount, setVisibleCount] = useState(10);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const visibleLogs = logData.logs.slice(0, visibleCount);
+  const displayedCount = visibleLogs.length;
+  const remainingCount = Math.max(logData.logs.length - displayedCount, 0);
 
-  async function loadLogs(nextFilters: VehicleLogFilters, applied: boolean) {
+  async function loadLogs(nextFilters: VehicleLogFilters) {
     setLoading(true);
     setError("");
 
     try {
       const nextLogData = await requestVehicleLogs(nextFilters);
       setLogData(nextLogData);
-      setFilters(nextFilters);
-      setFilterApplied(applied);
+      setFilters(nextLogData.filters);
+      setVisibleCount(10);
     } catch (requestError) {
       setError(
         requestError instanceof Error
@@ -73,7 +78,6 @@ export default function VehicleManagementClient({ data }: { data: VehiclePageDat
 
   function refresh() {
     const params = createVehicleQuery(filters);
-    if (filterApplied) params.set("filtered", "1");
     params.set("refresh", String(Date.now()));
     router.push(`/vehicle?${params.toString()}`);
   }
@@ -100,10 +104,15 @@ export default function VehicleManagementClient({ data }: { data: VehiclePageDat
 
       <section className="space-y-3">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">운행기록</h2>
+          <h2 className="text-lg font-semibold text-gray-900">
+            최근 1개월 운행기록
+          </h2>
           <p className="text-sm text-gray-500">
-            {filterApplied ? "검색 결과 최대 20건" : "최근 운행기록 20건"}
-            {` · 현재 ${logData.logs.length.toLocaleString("ko-KR")}건`}
+            최대 최근 1개월의 운행기록을 조회합니다.
+          </p>
+          <p className="mt-1 text-sm font-medium text-gray-700">
+            총 {logData.logs.length.toLocaleString("ko-KR")}건 중{" "}
+            {displayedCount.toLocaleString("ko-KR")}건 표시
           </p>
         </div>
 
@@ -120,11 +129,25 @@ export default function VehicleManagementClient({ data }: { data: VehiclePageDat
           filters={filters}
           vehicles={data.dashboard.vehicles}
           departments={logData.departments}
+          minDate={data.defaultFilters.startDate}
+          maxDate={data.defaultFilters.endDate}
           disabled={loading}
-          onApply={(nextFilters) => void loadLogs(nextFilters, true)}
-          onReset={() => void loadLogs(data.defaultFilters, false)}
+          onApply={(nextFilters) => void loadLogs(nextFilters)}
+          onReset={() => void loadLogs(data.defaultFilters)}
         />
-        <VehicleLogTable logs={logData.logs} />
+        <VehicleLogTable logs={visibleLogs} />
+
+        {visibleCount < logData.logs.length && (
+          <div className="flex justify-center">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setVisibleCount((count) => count + 10)}
+            >
+              더보기 (남은 {remainingCount.toLocaleString("ko-KR")}건)
+            </Button>
+          </div>
+        )}
       </section>
     </div>
   );

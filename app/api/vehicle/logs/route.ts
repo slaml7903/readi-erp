@@ -11,18 +11,17 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const data = await fetchVehicleLogs(
-      normalizeVehicleLogFilters({
-        startDate: searchParams.get("startDate") ?? undefined,
-        endDate: searchParams.get("endDate") ?? undefined,
-        vehicleNumber: searchParams.get("carNo") ?? undefined,
-        department: searchParams.get("dept") ?? undefined,
-        driverName: searchParams.get("driverName") ?? undefined,
-        status: searchParams.get("status") ?? undefined,
-      })
-    );
+    const filters = normalizeVehicleLogFilters({
+      startDate: searchParams.get("startDate") ?? undefined,
+      endDate: searchParams.get("endDate") ?? undefined,
+      vehicleNumber: searchParams.get("carNo") ?? undefined,
+      department: searchParams.get("dept") ?? undefined,
+      driverName: searchParams.get("driverName") ?? undefined,
+      status: searchParams.get("status") ?? undefined,
+    });
+    const data = await fetchVehicleLogs(filters);
 
-    return NextResponse.json(data);
+    return NextResponse.json({ ...data, filters });
   } catch (error) {
     if (error instanceof VehicleApiError) {
       return NextResponse.json({ message: error.message }, { status: 502 });

@@ -10,7 +10,7 @@ export default function VehicleLogTable({ logs }: { logs: VehicleDrivingLog[] })
   if (logs.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-gray-300 bg-white px-4 py-10 text-center text-sm text-gray-500">
-        조건에 맞는 운행기록이 없습니다.
+        조회 조건에 맞는 운행기록이 없습니다.
       </div>
     );
   }

@@ -126,6 +126,20 @@ function subtractOneMonth(dateText: string) {
   return date.toISOString().slice(0, 10);
 }
 
+function isValidDateOnly(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.toISOString().slice(0, 10) === value;
+}
+
+function clampDate(value: string, minDate: string, maxDate: string) {
+  if (value < minDate) return minDate;
+  if (value > maxDate) return maxDate;
+  return value;
+}
+
 export function getDefaultVehicleLogFilters(): VehicleLogFilters {
   const endDate = getTodayDate();
   return {
@@ -142,10 +156,22 @@ export function normalizeVehicleLogFilters(
   filters: Partial<VehicleLogFilters>
 ): VehicleLogFilters {
   const defaults = getDefaultVehicleLogFilters();
+  const rawStartDate = filters.startDate?.trim() ?? "";
+  const rawEndDate = filters.endDate?.trim() ?? "";
+  const startDate = isValidDateOnly(rawStartDate)
+    ? clampDate(rawStartDate, defaults.startDate, defaults.endDate)
+    : defaults.startDate;
+  const endDate = isValidDateOnly(rawEndDate)
+    ? clampDate(rawEndDate, defaults.startDate, defaults.endDate)
+    : defaults.endDate;
+
+  const normalizedDateRange =
+    startDate <= endDate
+      ? { startDate, endDate }
+      : { startDate: defaults.startDate, endDate: defaults.endDate };
 
   return {
-    startDate: filters.startDate?.trim() ?? defaults.startDate,
-    endDate: filters.endDate?.trim() ?? defaults.endDate,
+    ...normalizedDateRange,
     vehicleNumber: filters.vehicleNumber?.trim() ?? "",
     department: filters.department?.trim() ?? "",
     driverName: filters.driverName?.trim() ?? "",
@@ -172,9 +198,10 @@ export async function fetchVehicleLogs(
   filters: VehicleLogFilters,
   forceRefresh = false
 ): Promise<VehicleLogData> {
-  const data = await getVehicleLogsFromApi(filters, forceRefresh);
+  const normalizedFilters = normalizeVehicleLogFilters(filters);
+  const data = await getVehicleLogsFromApi(normalizedFilters, forceRefresh);
   return {
-    logs: sortLogs((data.logs ?? []).map(normalizeLog)).slice(0, 20),
+    logs: sortLogs((data.logs ?? []).map(normalizeLog)).slice(0, 100),
     departments: toDepartments(data.depts),
   };
 }

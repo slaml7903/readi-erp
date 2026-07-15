@@ -71,10 +71,13 @@ export type VehicleLogData = {
   departments: string[];
 };
 
+export type VehicleLogQueryResult = VehicleLogData & {
+  filters: VehicleLogFilters;
+};
+
 export type VehiclePageData = {
   dashboard: VehicleDashboard;
   logData: VehicleLogData;
   filters: VehicleLogFilters;
   defaultFilters: VehicleLogFilters;
-  filterApplied: boolean;
 };

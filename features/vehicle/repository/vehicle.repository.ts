@@ -143,7 +143,7 @@ export async function getVehicleLogsFromApi(
   const url = getVehicleApiUrl();
   url.searchParams.set("mode", "api");
   url.searchParams.set("action", "logs");
-  url.searchParams.set("limit", "20");
+  url.searchParams.set("limit", "100");
   addParameter(url, "startDate", filters.startDate);
   addParameter(url, "endDate", filters.endDate);
   addParameter(url, "carNo", filters.vehicleNumber);

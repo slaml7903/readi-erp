@@ -15,7 +15,6 @@ type VehiclePageProps = {
     dept?: string;
     driverName?: string;
     status?: string;
-    filtered?: string;
     refresh?: string;
   }>;
 };
@@ -33,7 +32,6 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
     status: params.status,
   });
   const forceRefresh = Boolean(params.refresh);
-  const filterApplied = params.filtered === "1";
   const defaultFilters = getDefaultVehicleLogFilters();
   const [dashboard, logData] = await Promise.all([
     fetchVehicleDashboard(forceRefresh),
@@ -48,7 +46,7 @@ export default async function VehiclePage({ searchParams }: VehiclePageProps) {
       />
       <VehicleManagementClient
         key={params.refresh ?? "initial"}
-        data={{ dashboard, logData, filters, defaultFilters, filterApplied }}
+        data={{ dashboard, logData, filters, defaultFilters }}
       />
     </div>
   );

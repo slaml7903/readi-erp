@@ -13,6 +13,8 @@ export default function VehicleLogFilters({
   filters,
   vehicles,
   departments,
+  minDate,
+  maxDate,
   disabled,
   onApply,
   onReset,
@@ -20,6 +22,8 @@ export default function VehicleLogFilters({
   filters: VehicleLogFiltersType;
   vehicles: VehicleStatusItem[];
   departments: string[];
+  minDate: string;
+  maxDate: string;
   disabled: boolean;
   onApply: (filters: VehicleLogFiltersType) => void;
   onReset: () => void;
@@ -43,11 +47,27 @@ export default function VehicleLogFilters({
     >
       <label className="space-y-1 text-xs font-medium text-gray-600">
         <span>시작일</span>
-        <Input name="startDate" type="date" defaultValue={filters.startDate} className="w-full" />
+        <Input
+          required
+          name="startDate"
+          type="date"
+          min={minDate}
+          max={maxDate}
+          defaultValue={filters.startDate}
+          className="w-full"
+        />
       </label>
       <label className="space-y-1 text-xs font-medium text-gray-600">
         <span>종료일</span>
-        <Input name="endDate" type="date" defaultValue={filters.endDate} className="w-full" />
+        <Input
+          required
+          name="endDate"
+          type="date"
+          min={minDate}
+          max={maxDate}
+          defaultValue={filters.endDate}
+          className="w-full"
+        />
       </label>
       <label className="space-y-1 text-xs font-medium text-gray-600">
         <span>차량</span>
