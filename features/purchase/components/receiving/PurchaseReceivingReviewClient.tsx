@@ -72,7 +72,7 @@ export default function PurchaseReceivingReviewClient({
       }
 
       const confirmed = window.confirm(
-        "검토완료 처리 후 연결된 발주 상태가 입고완료로 변경됩니다. 계속할까요?"
+        "입고확인을 검토완료 처리할까요? 품목과 발주 상태는 Airtable에서 자동 반영됩니다."
       );
 
       if (!confirmed) return;

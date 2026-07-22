@@ -24,10 +24,10 @@ export default async function PurchaseReceivingPage({
 
       <div className="flex justify-end">
         <Link
-          href="/purchase/order"
+          href="/purchase/receiving/new"
           className="inline-flex h-10 items-center rounded-md bg-gray-900 px-4 text-sm font-medium text-white hover:bg-gray-800"
         >
-          입고확인 제출
+          입고확인 요청 등록
         </Link>
       </div>
 

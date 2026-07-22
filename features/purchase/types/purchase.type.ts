@@ -102,6 +102,47 @@ export interface PurchaseOrderItemSummary {
   memo?: string;
 }
 
+export type PurchaseReceivingItemStatus =
+  | "미입고"
+  | "입고확인중"
+  | "입고완료"
+  | string;
+
+export interface PurchaseReceivingRequestOption {
+  id: string;
+  prNo: string;
+  title?: string;
+  orderRecordIds: string[];
+}
+
+export interface PurchaseReceivingOrderOption {
+  id: string;
+  poNo: string;
+  requestRecordIds: string[];
+  orderItemRecordIds: string[];
+  status?: PurchaseOrderStatus;
+}
+
+export interface PurchaseReceivingItemOption {
+  id: string;
+  orderRecordIds: string[];
+  itemName: string;
+  itemMaster: string;
+  specification?: string;
+  quantity?: number;
+  status: PurchaseReceivingItemStatus;
+  refundOrCancelled: boolean;
+  receivingRecordIds: string[];
+  selectable: boolean;
+  unavailableReason?: string;
+}
+
+export interface PurchaseReceivingSelectionData {
+  requests: PurchaseReceivingRequestOption[];
+  orders: PurchaseReceivingOrderOption[];
+  items: PurchaseReceivingItemOption[];
+}
+
 export interface PurchaseReceivingSummary {
   id: string;
   receivingNo: string;
@@ -222,12 +263,14 @@ export interface PurchaseReceivingReviewItem {
 }
 
 export interface SubmitPurchaseReceivingInput {
+  requestRecordId: string;
   orderRecordId: string;
+  orderItemRecordIds: string[];
   receivingChecker: string;
   receivingDate: string;
   memo?: string;
-  transactionStatementFile?: CreateAirtableAttachmentInput;
-  receivingEvidenceFile?: CreateAirtableAttachmentInput;
+  transactionStatementFiles: CreateAirtableAttachmentInput[];
+  receivingEvidenceFiles: CreateAirtableAttachmentInput[];
 }
 
 export interface CreatePurchaseRequestInput {

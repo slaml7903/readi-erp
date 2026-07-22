@@ -15,9 +15,31 @@ function hasActivePath(item: NavigationItem, pathname: string): boolean {
   return Boolean(item.children?.some((child) => hasActivePath(child, pathname)));
 }
 
+function getActiveNavigationHref(pathname: string) {
+  const matchingHrefs: string[] = [];
+
+  function collect(items: NavigationItem[]) {
+    items.forEach((item) => {
+      if (
+        item.href &&
+        (item.href === "/"
+          ? pathname === "/"
+          : pathname === item.href || pathname.startsWith(`${item.href}/`))
+      ) {
+        matchingHrefs.push(item.href);
+      }
+
+      if (item.children) collect(item.children);
+    });
+  }
+
+  collect(navigation);
+  return matchingHrefs.sort((a, b) => b.length - a.length)[0];
+}
+
 function SidebarLink({ item, depth = 0 }: { item: NavigationItem; depth?: number }) {
   const pathname = usePathname();
-  const isActive = hasActivePath(item, pathname);
+  const isActive = item.href === getActiveNavigationHref(pathname);
   const paddingByDepth = ["pl-4", "pl-7", "pl-10", "pl-12"][depth] ?? "pl-12";
 
   if (!item.href) {

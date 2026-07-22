@@ -6,6 +6,7 @@ import {
 } from "@/lib/airtable/errors/airtable-repository.error";
 
 import { PurchaseValidationError } from "../errors/purchase-validation.error";
+import { PurchaseReceivingUploadError } from "../errors/purchase-receiving-upload.error";
 
 type PurchaseApiErrorOptions = {
   scope: string;
@@ -18,6 +19,10 @@ export function createPurchaseApiErrorResponse(
 ) {
   if (error instanceof PurchaseValidationError) {
     return NextResponse.json({ message: error.message }, { status: 400 });
+  }
+
+  if (error instanceof PurchaseReceivingUploadError) {
+    return NextResponse.json({ message: error.message }, { status: 502 });
   }
 
   if (error instanceof AirtableRepositoryError) {

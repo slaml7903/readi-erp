@@ -9,12 +9,11 @@ export async function POST(
 ) {
   try {
     const { receivingId } = await params;
-    const result = await approvePurchaseReceivingReview(receivingId);
+    const receiving = await approvePurchaseReceivingReview(receivingId);
 
     return NextResponse.json({
-      receivingId: result.receiving.id,
-      orderId: result.order.id,
-      message: "검토완료 처리되었고 발주 상태가 입고완료로 변경되었습니다.",
+      receivingId: receiving.id,
+      message: "검토완료 처리되었습니다. 품목과 발주 상태는 Airtable에서 자동 반영됩니다.",
     });
   } catch (error) {
     return createPurchaseApiErrorResponse(error, {

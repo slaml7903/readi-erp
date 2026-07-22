@@ -9,7 +9,7 @@ export default function Home() {
   return (
     <>
       <div className="mb-8">
-        <h2 className="text-2xl font-bold">Dashboard</h2>
+        <h2 className="text-2xl font-bold">대시보드</h2>
         <p className="mt-1 text-sm text-slate-500">
           구매, 재고, BOM, 차량 현황을 한눈에 확인합니다.
         </p>

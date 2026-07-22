@@ -1,12 +1,10 @@
 import {
   createReceivingRecord,
-  getPurchaseOrderStatus,
-  getPurchaseOrderReceivingSafetyContext,
-  getReceivingsByOrderId,
   getReceivingOrderDetail,
   getReceivingReviewApprovalContext,
   getReceivingReviewItems,
-  markOrderReceivingCompleted,
+  getReceivingSelectionData,
+  getReceivingSubmissionContext,
   markReceivingReviewCompleted,
 } from "../repository/receiving.repository";
 import {
@@ -14,7 +12,6 @@ import {
   PURCHASE_RECEIVING_REVIEW_STATUS,
 } from "../constants/purchase-status";
 import {
-  assertPurchaseOrderStatusTransition,
   assertPurchaseReceivingReviewStatusTransition,
 } from "../domain/purchase-status-transition";
 import { PurchaseValidationError } from "../errors/purchase-validation.error";
@@ -23,6 +20,7 @@ import {
   validateReceivingInput,
   validateReceivingOrderId,
   validateReceivingReviewId,
+  normalizeReceivingInput,
 } from "../validation/purchase-receiving.validation";
 
 import type { SubmitPurchaseReceivingInput } from "../types/purchase.type";
@@ -40,14 +38,35 @@ export async function fetchReceivingReviewItems() {
   return await getReceivingReviewItems();
 }
 
-export async function submitPurchaseReceiving(
-  input: SubmitPurchaseReceivingInput
-) {
-  validateReceivingInput(input);
-  assertAirtableRecordId(input.orderRecordId, "발주 ID");
-  await assertReceivingCanBeSubmitted(input);
+export async function fetchReceivingSelectionData() {
+  return await getReceivingSelectionData();
+}
 
-  return await createReceivingRecord(input);
+const inFlightReceivingItemIds = new Set<string>();
+
+export async function submitPurchaseReceiving(
+  rawInput: Partial<SubmitPurchaseReceivingInput> | null | undefined
+) {
+  const input = normalizeReceivingInput(rawInput);
+  validateReceivingInput(input);
+  assertAirtableRecordId(input.requestRecordId, "구매요청 ID");
+  assertAirtableRecordId(input.orderRecordId, "발주 ID");
+  input.orderItemRecordIds.forEach((itemId) =>
+    assertAirtableRecordId(itemId, "발주상세품목 ID")
+  );
+
+  if (input.orderItemRecordIds.some((itemId) => inFlightReceivingItemIds.has(itemId))) {
+    throw new PurchaseValidationError("동일한 품목의 입고확인이 이미 처리 중입니다.");
+  }
+
+  input.orderItemRecordIds.forEach((itemId) => inFlightReceivingItemIds.add(itemId));
+
+  try {
+    await assertReceivingSelectionIsValid(input);
+    return await createReceivingRecord(input);
+  } finally {
+    input.orderItemRecordIds.forEach((itemId) => inFlightReceivingItemIds.delete(itemId));
+  }
 }
 
 export async function approvePurchaseReceivingReview(receivingRecordId: string) {
@@ -74,94 +93,59 @@ export async function approvePurchaseReceivingReview(receivingRecordId: string) 
     PURCHASE_RECEIVING_REVIEW_STATUS.COMPLETED
   );
 
-  if (!receivingContext.orderRecordId) {
-    throw new PurchaseValidationError("연결된 발주가 없는 입고확인입니다.");
-  }
-
-  const currentOrderStatus = await getPurchaseOrderStatus(
-    receivingContext.orderRecordId
-  );
-
-  if (!currentOrderStatus) {
-    throw new PurchaseValidationError("연결된 발주 정보를 찾을 수 없습니다.");
-  }
-
-  assertPurchaseOrderStatusTransition(
-    currentOrderStatus,
-    PURCHASE_ORDER_STATUS.RECEIVED
-  );
-
-  const reviewedReceivingRecord =
-    await markReceivingReviewCompleted(receivingRecordId);
-  const completedOrderRecord = await markOrderReceivingCompleted(
-    receivingContext.orderRecordId
-  );
-
-  return {
-    receiving: reviewedReceivingRecord,
-    order: completedOrderRecord,
-  };
+  return await markReceivingReviewCompleted(receivingRecordId);
 }
 
-async function assertReceivingCanBeSubmitted(
-  input: SubmitPurchaseReceivingInput
-) {
-  const orderContext = await getPurchaseOrderReceivingSafetyContext(
-    input.orderRecordId
+async function assertReceivingSelectionIsValid(input: SubmitPurchaseReceivingInput) {
+  const context = await getReceivingSubmissionContext(
+    input.requestRecordId,
+    input.orderRecordId,
+    input.orderItemRecordIds
   );
 
-  if (!orderContext) {
-    throw new PurchaseValidationError("연결된 발주 정보를 찾을 수 없습니다.");
+  if (!context.request) {
+    throw new PurchaseValidationError("선택한 구매요청을 찾을 수 없습니다.");
+  }
+  if (!context.order) {
+    throw new PurchaseValidationError("선택한 발주를 찾을 수 없습니다.");
+  }
+  if (
+    !context.request.orderRecordIds.includes(input.orderRecordId) ||
+    !context.order.requestRecordIds.includes(input.requestRecordId)
+  ) {
+    throw new PurchaseValidationError("선택한 발주가 해당 구매요청에 연결되어 있지 않습니다.");
+  }
+  if (context.order.status === PURCHASE_ORDER_STATUS.CANCELLED) {
+    throw new PurchaseValidationError("취소된 발주는 입고확인을 등록할 수 없습니다.");
+  }
+  if (context.order.status === PURCHASE_ORDER_STATUS.RECEIVED) {
+    throw new PurchaseValidationError("입고완료된 발주는 신규 입고 대상이 아닙니다.");
+  }
+  if (context.items.length !== input.orderItemRecordIds.length) {
+    throw new PurchaseValidationError("선택한 발주상세품목 중 존재하지 않는 항목이 있습니다.");
   }
 
-  const existingReceivings = await getReceivingsByOrderId(input.orderRecordId);
-  const linkedReceivings = existingReceivings.filter((receiving) =>
-    receiving.orderRecordIds?.includes(input.orderRecordId)
-  );
-
-  if (!orderContext.status) {
-    throw new PurchaseValidationError("발주 상태를 확인할 수 없습니다.");
-  }
-
-  if (orderContext.status === PURCHASE_ORDER_STATUS.CANCELLED) {
-    throw new PurchaseValidationError("취소된 발주는 입고확인을 제출할 수 없습니다.");
-  }
-
-  if (orderContext.status === PURCHASE_ORDER_STATUS.RECEIVED) {
-    throw new PurchaseValidationError(
-      "해당 발주에 대한 입고 처리가 이미 완료되었습니다."
-    );
-  }
-
-  if (orderContext.items.length === 0) {
-    throw new PurchaseValidationError("발주 품목을 확인할 수 없습니다.");
-  }
-
-  const hasInvalidOrderQuantity = orderContext.items.some(
-    (item) => !item.quantity || item.quantity <= 0
-  );
-
-  if (hasInvalidOrderQuantity) {
-    throw new PurchaseValidationError("발주 품목 수량을 확인해주세요.");
-  }
-
-  const hasCompletedReceiving = linkedReceivings.some(
-    (receiving) => receiving.reviewCompleted
-  );
-
-  if (hasCompletedReceiving) {
-    throw new PurchaseValidationError(
-      "해당 발주에 대한 입고 처리가 이미 완료되었습니다."
-    );
-  }
-
-  const hasDuplicateReceiving = linkedReceivings.some(
-    (receiving) =>
-      receiving.receivingDate === input.receivingDate &&
-      receiving.receivingChecker === input.receivingChecker.trim()
-  );
-
-  if (hasDuplicateReceiving) {
-    throw new PurchaseValidationError("이미 등록된 입고확인입니다.");
+  for (const item of context.items) {
+    if (
+      !context.order.orderItemRecordIds.includes(item.id) ||
+      !item.orderRecordIds.includes(input.orderRecordId)
+    ) {
+      throw new PurchaseValidationError(
+        `'${item.itemName}' 품목이 선택한 발주에 연결되어 있지 않습니다.`
+      );
+    }
+    if (item.status !== "미입고") {
+      throw new PurchaseValidationError(
+        `'${item.itemName}' 품목은 현재 '${item.status}' 상태이므로 입고할 수 없습니다.`
+      );
+    }
+    if (item.refundOrCancelled) {
+      throw new PurchaseValidationError(`'${item.itemName}' 품목은 환불/취소 대상입니다.`);
+    }
+    if (item.receivingRecordIds.length > 0) {
+      throw new PurchaseValidationError(
+        `'${item.itemName}' 품목은 이미 입고확인에 연결되어 있습니다.`
+      );
+    }
   }
 }

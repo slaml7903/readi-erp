@@ -6,12 +6,13 @@ import type { SubmitPurchaseReceivingInput } from "@/features/purchase/types/pur
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as SubmitPurchaseReceivingInput;
+    const body = (await request.json()) as Partial<SubmitPurchaseReceivingInput>;
     const receiving = await submitPurchaseReceiving(body);
 
     return NextResponse.json({
       receivingId: receiving.id,
-      message: "입고확인이 제출되었습니다. 발주 상태는 변경되지 않았습니다.",
+      receivingNo: String(receiving.fields["입고확인"] ?? ""),
+      message: "입고확인 요청이 등록되었습니다.",
     });
   } catch (error) {
     return createPurchaseApiErrorResponse(error, {

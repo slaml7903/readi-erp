@@ -127,10 +127,10 @@ export default function PurchaseOrderList({
                   <td className="px-3 py-3">{order.status || "-"}</td>
                   <td className="px-3 py-3 text-center">
                     <Link
-                      href={`/purchase/receiving/new?orderId=${order.id}`}
+                      href="/purchase/receiving/new"
                       className="inline-flex h-9 items-center rounded-md bg-gray-900 px-3 text-sm font-medium text-white hover:bg-gray-800"
                     >
-                      입고확인 제출
+                      입고확인 요청
                     </Link>
                   </td>
                 </tr>

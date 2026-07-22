@@ -48,6 +48,11 @@ type AirtableCreateRecordsResponse = {
   records: AirtableRecord[];
 };
 
+type AirtableDeleteRecordResponse = {
+  id: string;
+  deleted: boolean;
+};
+
 type AirtableRequestContext = {
   operation: string;
   tableName?: string;
@@ -497,6 +502,28 @@ export async function airtableUpdateRecord(
   );
 
   return record;
+}
+
+export async function airtableDeleteRecord(
+  tableName: string,
+  recordId: string,
+  options: Pick<AirtableMutationOptions, "baseId" | "revalidateTags"> = {}
+): Promise<AirtableDeleteRecordResponse> {
+  const url = createAirtableUrl(tableName, options.baseId);
+  url.pathname = `${url.pathname}/${encodeURIComponent(recordId)}`;
+
+  const result = await requestAirtable<AirtableDeleteRecordResponse>(
+    url,
+    { method: "DELETE" },
+    "Failed to delete Airtable record",
+    { operation: "deleteRecord", tableName, recordId }
+  );
+
+  await revalidateCacheTags(
+    createMutationRevalidationTags({ tableName, recordId, options })
+  );
+
+  return result;
 }
 
 export async function airtableCreateRecords(
