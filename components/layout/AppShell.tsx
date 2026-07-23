@@ -1,5 +1,5 @@
 import Header from "./Header";
-import Sidebar from "./Sidebar";
+import Breadcrumb from "./Breadcrumb";
 
 type AppShellProps = {
   children: React.ReactNode;
@@ -7,15 +7,12 @@ type AppShellProps = {
 
 export default function AppShell({ children }: AppShellProps) {
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-900">
-      <div className="flex min-h-screen">
-        <Sidebar />
-
-        <div className="flex min-w-0 flex-1 flex-col">
-          <Header />
-          <section className="flex-1 overflow-auto p-8">{children}</section>
-        </div>
-      </div>
-    </main>
+    <div className="min-h-screen bg-[var(--app-background)] text-[var(--text-primary)]">
+      <Header />
+      <main className="mx-auto w-full max-w-[1680px] px-4 py-4 sm:px-6 lg:px-8 lg:py-6">
+        <div className="mb-4"><Breadcrumb /></div>
+        {children}
+      </main>
+    </div>
   );
 }

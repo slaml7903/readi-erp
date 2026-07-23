@@ -1,8 +1,10 @@
 "use client";
 
 import { ReactNode, useMemo, useState } from "react";
+import { ArrowDown, ArrowUp, ArrowUpDown, RotateCcw } from "lucide-react";
 
 import EmptyState from "../EmptyState";
+import { useResizableColumns } from "./useResizableColumns";
 
 export type DataTableColumn<T> = {
   key: keyof T & string;
@@ -10,6 +12,9 @@ export type DataTableColumn<T> = {
   align?: "left" | "center" | "right";
   sortable?: boolean;
   width?: string;
+  defaultWidth?: number;
+  minWidth?: number;
+  maxWidth?: number;
   render?: (row: T, index: number) => ReactNode;
 };
 
@@ -21,6 +26,9 @@ interface DataTableProps<T> {
   getRowId?: (row: T) => string;
   selectedRowId?: string | null;
   onRowClick?: (row: T) => void;
+  getRowAriaLabel?: (row: T) => string;
+  tableClassName?: string;
+  tableId?: string;
 }
 
 type SortDirection = "asc" | "desc";
@@ -33,11 +41,37 @@ export default function DataTable<T>({
   getRowId,
   selectedRowId,
   onRowClick,
+  getRowAriaLabel,
+  tableClassName = "",
+  tableId,
 }: DataTableProps<T>) {
   const [sortKey, setSortKey] = useState<(keyof T & string) | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(initialPageSize);
+  const resizeDefinitions = useMemo(
+    () =>
+      tableId
+        ? columns.map((column) => ({
+            key: column.key,
+            defaultWidth:
+              column.defaultWidth ?? parsePixelWidth(column.width) ?? 160,
+            minWidth: column.minWidth ?? inferMinimumWidth(column),
+            maxWidth: column.maxWidth,
+          }))
+        : [],
+    [columns, tableId]
+  );
+  const {
+    getColumnStyle,
+    renderResizeHandle,
+    resetAll: resetColumnWidths,
+    hasCustomWidths,
+  } = useResizableColumns(tableId ?? "data-table", resizeDefinitions);
+  const tableMinWidth = resizeDefinitions.reduce(
+    (sum, column) => sum + Number(getColumnStyle(column.key).width ?? 0),
+    0
+  );
 
   const sortedData = useMemo(() => {
     if (!sortKey) return data;
@@ -83,40 +117,57 @@ export default function DataTable<T>({
   };
 
   const getSortIcon = (column: DataTableColumn<T>) => {
-    if (!column.sortable) return "";
-    if (sortKey !== column.key) return " ↕";
-    return sortDirection === "asc" ? " ↑" : " ↓";
+    if (!column.sortable) return null;
+    if (sortKey !== column.key) return <ArrowUpDown aria-hidden="true" size={13} />;
+    return sortDirection === "asc" ? <ArrowUp aria-hidden="true" size={13} /> : <ArrowDown aria-hidden="true" size={13} />;
   };
 
   const getAlignClass = (align?: "left" | "center" | "right") => {
     if (align === "right") return "text-right";
     if (align === "center") return "text-center";
-    return "text-left";
+    return "text-center";
   };
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+    <div className="overflow-hidden rounded-lg border border-[var(--border-default)] bg-white shadow-[0_1px_2px_rgba(0,55,85,0.04)]">
+      {tableId && hasCustomWidths ? (
+        <div className="flex justify-end border-b border-gray-100 px-3 py-1.5">
+          <button type="button" onClick={resetColumnWidths} className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--brand-primary)]">
+            <RotateCcw aria-hidden="true" size={13} />컬럼 너비 초기화
+          </button>
+        </div>
+      ) : null}
       <div className="max-h-[680px] overflow-auto">
-        <table className="w-full text-sm">
-          <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-100 text-gray-700">
+        <table
+          className={`w-full table-fixed text-sm ${tableClassName}`}
+          style={tableId ? { minWidth: tableMinWidth } : undefined}
+        >
+          {tableId ? (
+            <colgroup>
+              {columns.map((column) => (
+                <col key={column.key} style={getColumnStyle(column.key)} />
+              ))}
+            </colgroup>
+          ) : null}
+          <thead className="sticky top-0 z-10 border-b border-[var(--border-default)] bg-slate-100 text-[var(--text-primary)]">
             <tr>
               {columns.map((column) => (
                 <th
                   key={column.key}
                   onClick={() => handleSort(column)}
-                  style={{ width: column.width }}
-                  className={`p-3 ${getAlignClass(column.align)} ${
+                  style={tableId ? getColumnStyle(column.key) : { width: column.width }}
+                  className={`relative p-3 ${getAlignClass(column.align)} ${
                     column.sortable ? "cursor-pointer select-none" : ""
                   }`}
                 >
-                  {column.header}
-                  {getSortIcon(column)}
+                  <span className={`inline-flex items-center justify-center gap-1 ${column.align === "left" ? "justify-start" : column.align === "right" ? "justify-end" : ""}`}>{column.header}{getSortIcon(column)}</span>
+                  {tableId ? renderResizeHandle(column.key) : null}
                 </th>
               ))}
             </tr>
           </thead>
 
-          <tbody className="text-gray-900">
+          <tbody className="text-[var(--text-primary)]">
             {pagedData.length === 0 ? (
               <tr>
                 <td
@@ -136,18 +187,30 @@ export default function DataTable<T>({
                   <tr
                     key={rowId}
                     onClick={() => onRowClick?.(row)}
-                    className={`border-b border-gray-100 ${
-                      onRowClick ? "cursor-pointer" : ""
+                    onKeyDown={(event) => {
+                      if (!onRowClick || event.target !== event.currentTarget) return;
+                      if (event.key !== "Enter" && event.key !== " ") return;
+
+                      event.preventDefault();
+                      onRowClick(row);
+                    }}
+                    tabIndex={onRowClick ? 0 : undefined}
+                    role={onRowClick ? "link" : undefined}
+                    aria-label={onRowClick ? getRowAriaLabel?.(row) : undefined}
+                    className={`border-b border-slate-100 ${
+                      onRowClick
+                        ? "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--brand-secondary)]"
+                        : ""
                     } ${
                       isSelected
-                        ? "bg-blue-50 hover:bg-blue-50"
-                        : "hover:bg-gray-50"
+                        ? "bg-[var(--brand-primary-light)] hover:bg-[var(--brand-primary-light)]"
+                        : "hover:bg-[color-mix(in_srgb,var(--brand-primary-light)_55%,white)]"
                     }`}
                   >
                     {columns.map((column) => (
                       <td
                         key={column.key}
-                        style={{ width: column.width }}
+                        style={tableId ? getColumnStyle(column.key) : { width: column.width }}
                         className={`p-3 ${getAlignClass(column.align)}`}
                       >
                         {column.render
@@ -208,4 +271,22 @@ export default function DataTable<T>({
       </div>
     </div>
   );
+}
+
+function parsePixelWidth(value: string | undefined) {
+  if (!value?.endsWith("px")) return undefined;
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function inferMinimumWidth<T>(column: DataTableColumn<T>) {
+  const key = column.key.toLowerCase();
+  const header = column.header.toLowerCase();
+  if (key.includes("status") || header.includes("상태")) return 80;
+  if (key.includes("date") || header.includes("일자") || header.includes("일")) return 100;
+  if (header.includes("no.") || header.includes("번호")) return 110;
+  if (header.includes("금액") || header.includes("단가") || header.includes("재고")) return 100;
+  if (header.includes("품명") || header.includes("제목") || header.includes("비고")) return 160;
+  if (header.includes("서류") || header.includes("첨부")) return 70;
+  return 80;
 }

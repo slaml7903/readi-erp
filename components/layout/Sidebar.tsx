@@ -1,254 +1,122 @@
 "use client";
 
+import { ChevronRight, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useId, useState } from "react";
+
 import { navigation, type NavigationItem } from "@/lib/navigation";
 
 function hasActivePath(item: NavigationItem, pathname: string): boolean {
-  if (item.href) {
-    return item.href === "/"
-      ? pathname === "/"
-      : pathname === item.href || pathname.startsWith(`${item.href}/`);
-  }
-
+  if (item.href) return item.href === "/" ? pathname === "/" : pathname === item.href || pathname.startsWith(`${item.href}/`);
   return Boolean(item.children?.some((child) => hasActivePath(child, pathname)));
 }
 
-function getActiveNavigationHref(pathname: string) {
-  const matchingHrefs: string[] = [];
-
-  function collect(items: NavigationItem[]) {
-    items.forEach((item) => {
-      if (
-        item.href &&
-        (item.href === "/"
-          ? pathname === "/"
-          : pathname === item.href || pathname.startsWith(`${item.href}/`))
-      ) {
-        matchingHrefs.push(item.href);
-      }
-
-      if (item.children) collect(item.children);
-    });
-  }
-
-  collect(navigation);
-  return matchingHrefs.sort((a, b) => b.length - a.length)[0];
+function itemKey(parent: string, item: NavigationItem) {
+  return `${parent}/${item.href ?? item.label}`;
 }
 
-function SidebarLink({ item, depth = 0 }: { item: NavigationItem; depth?: number }) {
-  const pathname = usePathname();
-  const isActive = item.href === getActiveNavigationHref(pathname);
-  const paddingByDepth = ["pl-4", "pl-7", "pl-10", "pl-12"][depth] ?? "pl-12";
-
-  if (!item.href) {
-    return (
-      <Link
-        href={`/planned?menu=${encodeURIComponent(item.label)}`}
-        prefetch={false}
-        className={[
-          "flex items-center justify-between rounded-lg py-2.5 pr-3 text-sm font-medium text-slate-400",
-          "transition duration-150 hover:bg-slate-50 hover:text-slate-500 active:scale-[0.99] active:bg-slate-100",
-          paddingByDepth,
-        ].join(" ")}
-      >
-        <span>{item.label}</span>
-        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-400">
-          준비중
-        </span>
-      </Link>
-    );
-  }
-
-  return (
-    <Link
-      href={item.href}
-      prefetch
-      className={[
-        "flex items-center justify-between rounded-lg py-2.5 pr-3 text-sm font-medium",
-        "transition duration-150 active:scale-[0.99]",
-        paddingByDepth,
-        isActive
-          ? "bg-slate-900 text-white active:bg-slate-950"
-          : "text-slate-700 hover:bg-slate-100 active:bg-slate-200",
-      ].join(" ")}
-    >
-      <span>{item.label}</span>
-      {item.status === "planned" && (
-        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">
-          예정
-        </span>
-      )}
-    </Link>
-  );
+function initialOpenKeys(items: NavigationItem[], pathname: string) {
+  return new Set(items.filter((item) => item.children?.length && hasActivePath(item, pathname)).map((item) => itemKey("root", item)));
 }
 
-function SidebarGroup({
-  item,
-  isOpen,
-  onToggle,
-}: {
-  item: NavigationItem;
-  isOpen: boolean;
-  onToggle: () => void;
-}) {
+export default function Sidebar() {
   const pathname = usePathname();
-  const hasActiveChild = hasActivePath(item, pathname);
-  const [openNestedKey, setOpenNestedKey] = useState<string | null>(null);
+  return <NavigationContent key={pathname} pathname={pathname} />;
+}
 
-  if (!item.children?.length) {
-    return <SidebarLink item={item} />;
-  }
+function NavigationContent({ pathname }: { pathname: string }) {
+  const [openKeys, setOpenKeys] = useState(() => initialOpenKeys(navigation, pathname));
+  const [desktopOpenKey, setDesktopOpenKey] = useState<string>();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const toggle = (key: string) => setOpenKeys((current) => {
+    const next = new Set(current);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
 
   return (
-    <div>
-      <button
-        type="button"
-        onClick={onToggle}
-        className={[
-          "flex w-full items-center justify-between rounded-lg px-4 py-2.5 text-left text-sm font-semibold",
-          "transition duration-150 active:scale-[0.99]",
-          hasActiveChild
-            ? "bg-slate-100 text-slate-900 active:bg-slate-200"
-            : "text-slate-700 hover:bg-slate-100 active:bg-slate-200",
-        ].join(" ")}
-      >
-        <span>{item.label}</span>
-        <span className="text-xs">{isOpen ? "▼" : "▶"}</span>
-      </button>
+    <div className="bg-[var(--brand-primary)] text-white">
+      <div className="mx-auto max-w-[1680px] px-4 sm:px-6 lg:px-8">
+        <button
+          type="button"
+          aria-expanded={mobileOpen}
+          aria-controls="portal-mobile-navigation"
+          onClick={() => setMobileOpen((open) => !open)}
+          className="flex h-11 w-full items-center gap-2 text-sm font-semibold md:hidden"
+        >
+          {mobileOpen ? <X aria-hidden="true" size={18} /> : <Menu aria-hidden="true" size={18} />}
+          전체 메뉴
+        </button>
 
-      {isOpen && (
-        <div className="mt-1 space-y-1">
-          {item.children.map((child) => (
-            child.children?.length ? (
-              <SidebarNestedGroup
-                key={child.href ?? child.label}
-                item={child}
-                depth={1}
-                isOpen={
-                  openNestedKey === (child.href ?? child.label) ||
-                  (!openNestedKey && hasActivePath(child, pathname))
-                }
-                onToggle={() => {
-                  const childKey = child.href ?? child.label;
-                  setOpenNestedKey((current) =>
-                    current === childKey ? null : childKey
-                  );
-                }}
-              />
-            ) : (
-              <SidebarLink
-                key={child.href ?? child.label}
-                item={child}
-                depth={1}
-              />
-            )
-          ))}
-        </div>
-      )}
+        <nav aria-label="전사 주요 메뉴" className="hidden h-11 items-stretch gap-1 md:flex">
+          {navigation.map((item) => {
+            const key = itemKey("root", item);
+            return <DesktopItem key={key} item={item} itemKey={key} pathname={pathname} open={desktopOpenKey === key} onOpen={() => setDesktopOpenKey(key)} onClose={() => setDesktopOpenKey(undefined)} onToggle={() => setDesktopOpenKey((current) => current === key ? undefined : key)} />;
+          })}
+        </nav>
+
+        {mobileOpen ? (
+          <nav id="portal-mobile-navigation" aria-label="모바일 전사 메뉴" className="space-y-1 border-t border-white/15 py-3 md:hidden">
+            {navigation.map((item) => {
+              const key = itemKey("root", item);
+              const open = openKeys.has(key);
+              return (
+                <div key={key}>
+                  {item.children?.length ? (
+                    <button type="button" aria-expanded={open} onClick={() => toggle(key)} className={`flex w-full items-center justify-between rounded-md px-3 py-2.5 text-sm font-semibold ${hasActivePath(item, pathname) ? "bg-white/15" : "hover:bg-white/10"}`}>
+                      {item.label}<ChevronRight aria-hidden="true" size={17} className={`transition-transform duration-150 motion-reduce:transition-none ${open ? "rotate-90" : ""}`} />
+                    </button>
+                  ) : <NavigationLink item={item} active={hasActivePath(item, pathname)} onNavigate={() => setMobileOpen(false)} />}
+                  {open ? <div className="ml-3 border-l border-white/20 pl-2">{item.children?.map((child) => <NavigationLink key={itemKey(key, child)} item={child} active={hasActivePath(child, pathname)} onNavigate={() => setMobileOpen(false)} />)}</div> : null}
+                </div>
+              );
+            })}
+          </nav>
+        ) : null}
+      </div>
     </div>
   );
 }
 
-function SidebarNestedGroup({
-  item,
-  depth,
-  isOpen,
-  onToggle,
-}: {
-  item: NavigationItem;
-  depth: number;
-  isOpen: boolean;
-  onToggle: () => void;
-}) {
-  const pathname = usePathname();
-  const hasActiveChild = hasActivePath(item, pathname);
-  const [openChildKey, setOpenChildKey] = useState<string | null>(null);
-  const paddingByDepth = ["pl-4", "pl-7", "pl-10", "pl-12"][depth] ?? "pl-12";
-
+function DesktopItem({ item, itemKey: key, pathname, open, onOpen, onClose, onToggle }: { item: NavigationItem; itemKey: string; pathname: string; open: boolean; onOpen: () => void; onClose: () => void; onToggle: () => void }) {
+  const panelId = useId();
+  const active = hasActivePath(item, pathname);
+  if (!item.children?.length) {
+    const href = item.href ?? `/planned?menu=${encodeURIComponent(item.label)}`;
+    return <Link href={href} className={`flex items-center border-b-2 px-4 text-sm font-semibold transition-colors ${active ? "border-[var(--brand-accent)] bg-white/10 text-white" : "border-transparent text-white/85 hover:bg-white/10 hover:text-white"}`}>{item.label}{item.status === "planned" ? <Planned /> : null}</Link>;
+  }
   return (
-    <div>
-      <button
-        type="button"
-        onClick={onToggle}
-        className={[
-          "flex w-full items-center justify-between rounded-lg py-2.5 pr-3 text-left text-sm font-semibold",
-          "transition duration-150 active:scale-[0.99]",
-          paddingByDepth,
-          hasActiveChild
-            ? "bg-slate-100 text-slate-900 active:bg-slate-200"
-            : "text-slate-600 hover:bg-slate-100 active:bg-slate-200",
-        ].join(" ")}
-      >
-        <span>{item.label}</span>
-        <span className="text-xs">{isOpen ? "▼" : "▶"}</span>
+    <div
+      className="relative flex"
+      onMouseEnter={onOpen}
+      onMouseLeave={onClose}
+      onFocus={onOpen}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) onClose();
+      }}
+    >
+      <button type="button" aria-expanded={open} aria-controls={panelId} onClick={onToggle} className={`flex items-center gap-2 border-b-2 px-4 text-sm font-semibold transition-colors ${active ? "border-[var(--brand-accent)] bg-white/10" : "border-transparent text-white/85 hover:bg-white/10 hover:text-white"}`}>
+        {item.label}<ChevronRight aria-hidden="true" size={16} className={`transition-transform duration-150 motion-reduce:transition-none ${open ? "rotate-90" : ""}`} />
       </button>
-
-      {isOpen ? (
-        <div className="mt-1 space-y-1">
-          {item.children?.map((child) =>
-            child.children?.length ? (
-              <SidebarNestedGroup
-                key={child.href ?? child.label}
-                item={child}
-                depth={depth + 1}
-                isOpen={
-                  openChildKey === (child.href ?? child.label) ||
-                  (!openChildKey && hasActivePath(child, pathname))
-                }
-                onToggle={() => {
-                  const childKey = child.href ?? child.label;
-                  setOpenChildKey((current) =>
-                    current === childKey ? null : childKey
-                  );
-                }}
-              />
-            ) : (
-              <SidebarLink
-                key={child.href ?? child.label}
-                item={child}
-                depth={depth + 1}
-              />
-            )
-          )}
+      {open ? (
+        <div id={panelId} className="absolute left-0 top-full z-50 mt-1 min-w-48 rounded-md border border-slate-200 bg-white p-1.5 text-[var(--text-primary)] shadow-lg">
+          {item.children.map((child) => <NavigationLink key={itemKey(key, child)} item={child} active={hasActivePath(child, pathname)} />)}
         </div>
       ) : null}
     </div>
   );
 }
 
-export default function Sidebar() {
-  const pathname = usePathname();
-  const [openGroupKey, setOpenGroupKey] = useState<string | null>(null);
-
+function NavigationLink({ item, active, onNavigate }: { item: NavigationItem; active: boolean; onNavigate?: () => void }) {
+  const href = item.href ?? `/planned?menu=${encodeURIComponent(item.label)}`;
   return (
-    <aside className="w-64 shrink-0 border-r border-slate-200 bg-white p-4">
-      <div className="mb-6 px-4">
-        <div className="text-base font-bold text-slate-900">READi ERP</div>
-        <div className="text-xs text-slate-500">READi ROBUST MACHINE</div>
-      </div>
-      <nav className="space-y-2">
-        {navigation.map((item) => {
-          const itemKey = item.href ?? item.label;
-
-          return (
-            <SidebarGroup
-              key={itemKey}
-              item={item}
-              isOpen={
-                openGroupKey === itemKey ||
-                (!openGroupKey && hasActivePath(item, pathname))
-              }
-              onToggle={() =>
-                setOpenGroupKey((current) =>
-                  current === itemKey ? null : itemKey
-                )
-              }
-            />
-          );
-        })}
-      </nav>
-    </aside>
+    <Link href={href} prefetch={Boolean(item.href)} onClick={onNavigate} className={`flex items-center justify-between gap-3 rounded-md px-3 py-2.5 text-sm ${active ? "bg-[var(--brand-primary-light)] font-semibold text-[var(--brand-primary)]" : "text-inherit hover:bg-slate-100"}`}>
+      <span>{item.label}</span>{item.status === "planned" ? <Planned /> : null}
+    </Link>
   );
+}
+
+function Planned() {
+  return <span className="ml-2 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">준비 중</span>;
 }

@@ -1,28 +1,46 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --brand-primary: #003755;
+  --brand-primary-hover: #002b43;
+  --brand-primary-light: #e7f1f5;
+  --brand-secondary: #0b6584;
+  --brand-accent: #fed900;
+  --logo-text: #003755;
+  --app-background: #f3f6f8;
+  --card-background: #ffffff;
+  --border-default: #dbe3e8;
+  --text-primary: #172b38;
+  --text-secondary: #61727d;
+  --text-disabled: #9aa8b1;
+  --status-success: #168454;
+  --status-warning: #b76c00;
+  --status-danger: #c33b3b;
+  --background: var(--app-background);
+  --foreground: var(--text-primary);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: Pretendard, "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: Pretendard, "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  font-size: 14px;
+}
+
+::selection {
+  background: var(--brand-primary-light);
+  color: var(--brand-primary);
+}
+
+:focus-visible {
+  outline-color: var(--brand-secondary);
 }
 
 button,

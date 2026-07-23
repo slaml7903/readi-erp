@@ -26,6 +26,7 @@ export interface PurchaseVendorOption {
 
 export interface PurchaseRequest {
   id: string;
+  createdTime?: string;
 
   prNo: string;
   title: string;
@@ -59,6 +60,7 @@ export interface PurchaseRequest {
 
 export interface PurchaseOrderSummary {
   id: string;
+  createdTime?: string;
   poNo: string;
   title?: string;
   status?: PurchaseOrderStatus;
@@ -110,6 +112,8 @@ export type PurchaseReceivingItemStatus =
 
 export interface PurchaseReceivingRequestOption {
   id: string;
+  requestDate?: string;
+  createdTime?: string;
   prNo: string;
   title?: string;
   orderRecordIds: string[];
@@ -117,6 +121,8 @@ export interface PurchaseReceivingRequestOption {
 
 export interface PurchaseReceivingOrderOption {
   id: string;
+  orderDate?: string;
+  createdTime?: string;
   poNo: string;
   requestRecordIds: string[];
   orderItemRecordIds: string[];
@@ -250,6 +256,7 @@ export interface PurchaseReceivingOrderDetail {
 
 export interface PurchaseReceivingReviewItem {
   id: string;
+  createdTime?: string;
   receivingNo: string;
   poRecordIds?: string[];
   poNos?: string[];

@@ -13,6 +13,7 @@ import {
   toAirtableNumber,
   toAirtableString,
 } from "@/lib/airtable/record";
+import { compareLatestFirst } from "@/lib/sort";
 
 import {
   INVENTORY_CACHE_TAGS,
@@ -82,6 +83,7 @@ function deriveStockStatus(
 
 function mapInventoryItem(record: {
   id: string;
+  createdTime?: string;
   fields: Record<string, unknown>;
 }): InventoryItem {
   const fields = record.fields;
@@ -99,6 +101,7 @@ function mapInventoryItem(record: {
 
   return {
     id: record.id,
+    createdTime: record.createdTime,
     itemCode: toAirtableFirstString(fields["품목코드(예찬 업뎃예정)"]),
     itemName: toAirtableFirstString(fields["품명"]),
     specification: toAirtableString(fields["규격/모델/사양"]) || undefined,
@@ -116,6 +119,7 @@ function mapInventoryItem(record: {
 
 function mapInventoryMovement(record: {
   id: string;
+  createdTime?: string;
   fields: Record<string, unknown>;
 }): InventoryMovement | undefined {
   const fields = record.fields;
@@ -128,6 +132,7 @@ function mapInventoryMovement(record: {
 
   return {
     id: record.id,
+    createdTime: record.createdTime,
     stockNumber: toAirtableFirstString(fields["stock번호"]) || undefined,
     transactionDate: toAirtableDateOnly(fields["Date"]),
     type,
@@ -147,7 +152,14 @@ export async function getInventoryItems(options: { fresh?: boolean } = {}) {
     cache: options.fresh ? "no-store" : undefined,
   });
 
-  return records.map(mapInventoryItem);
+  return records
+    .map(mapInventoryItem)
+    .sort((a, b) =>
+      compareLatestFirst(
+        { id: a.id, createdTime: a.createdTime },
+        { id: b.id, createdTime: b.createdTime }
+      )
+    );
 }
 
 export async function getInventoryItemById(
@@ -186,7 +198,13 @@ export async function getInventoryMovements(options: { fresh?: boolean } = {}) {
 
   return records
     .map(mapInventoryMovement)
-    .filter((movement): movement is InventoryMovement => Boolean(movement));
+    .filter((movement): movement is InventoryMovement => Boolean(movement))
+    .sort((a, b) =>
+      compareLatestFirst(
+        { id: a.id, date: a.transactionDate, createdTime: a.createdTime },
+        { id: b.id, date: b.transactionDate, createdTime: b.createdTime }
+      )
+    );
 }
 
 export async function createInventoryMovement(

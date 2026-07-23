@@ -135,7 +135,7 @@ export default function InventoryMovementClient({
         <Input aria-label="조회 종료일" type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
       </div>
 
-      <DataTable columns={columns} data={filteredMovements} emptyMessage="조건에 맞는 재고변동 내역이 없습니다." getRowId={(movement) => movement.id} />
+      <DataTable tableId="inventory-movements" columns={columns} data={filteredMovements} emptyMessage="조건에 맞는 재고변동 내역이 없습니다." getRowId={(movement) => movement.id} />
 
       <InventoryMovementForm
         open={formOpen}

@@ -75,6 +75,7 @@ export default function PurchaseRequestTable({
 }: PurchaseRequestTableProps) {
   return (
     <DataTable<PurchaseRequest>
+      tableId="purchase-requests"
       columns={columns}
       data={data}
       getRowId={(row) => row.id}

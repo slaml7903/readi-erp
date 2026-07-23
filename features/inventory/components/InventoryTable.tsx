@@ -57,6 +57,7 @@ export default function InventoryTable({
 }) {
   return (
     <DataTable
+      tableId="inventory-items"
       columns={columns}
       data={items}
       emptyMessage="조건에 맞는 품목이 없습니다."
@@ -66,4 +67,3 @@ export default function InventoryTable({
     />
   );
 }
-

@@ -314,10 +314,6 @@ export async function airtableFetchRecord(
 
   url.pathname = `${url.pathname}/${encodeURIComponent(recordId)}`;
 
-  options.fields?.filter(isNonEmptyString).forEach((field) => {
-    url.searchParams.append("fields[]", field);
-  });
-
   return requestAirtable<AirtableRecord>(
     url,
     {

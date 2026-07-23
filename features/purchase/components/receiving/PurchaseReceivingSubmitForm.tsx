@@ -405,7 +405,7 @@ function StepCard({
   return (
     <Card className={`p-4 ${disabled ? "opacity-50" : ""}`}>
       <div className="mb-4 flex items-center gap-3">
-        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-sm font-semibold text-white">{number}</span>
+        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--brand-primary)] text-sm font-semibold text-white">{number}</span>
         <h2 className="font-semibold text-gray-900">{title}</h2>
       </div>
       {children}

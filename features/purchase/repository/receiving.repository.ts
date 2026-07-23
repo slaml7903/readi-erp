@@ -9,6 +9,7 @@ import {
   type AirtableUploadFileInput,
 } from "@/lib/airtable/client";
 import { AirtableRepositoryError } from "@/lib/airtable/errors/airtable-repository.error";
+import { compareLatestFirst } from "@/lib/sort";
 import { PurchaseReceivingUploadError } from "../errors/purchase-receiving-upload.error";
 
 import {
@@ -164,6 +165,7 @@ function mapReceivingReviewItem(
 
   return {
     id: record.id,
+    createdTime: record.createdTime,
     receivingNo: toString(fields["입고확인"]),
     poRecordIds,
     poNos: poRecordIds
@@ -286,17 +288,26 @@ export async function getReceivingSelectionData(): Promise<PurchaseReceivingSele
     mapReceivingItemOption(record, receivingIdsByItemId)
   );
 
-  const orders = orderRecords.map((record) => ({
-    id: record.id,
-    poNo: toString(record.fields["발주번호"]),
-    requestRecordIds: toStringArray(record.fields["PR NO."]) ?? [],
-    orderItemRecordIds:
-      toStringArray(record.fields["발주상세품목"]) ??
-      items
-        .filter((item) => item.orderRecordIds.includes(record.id))
-        .map((item) => item.id),
-    status: normalizePurchaseOrderStatus(record.fields["상태"]),
-  }));
+  const orders = orderRecords
+    .map((record) => ({
+      id: record.id,
+      poNo: toString(record.fields["발주번호"]),
+      orderDate: toString(record.fields["발주일"]) || undefined,
+      createdTime: record.createdTime,
+      requestRecordIds: toStringArray(record.fields["PR NO."]) ?? [],
+      orderItemRecordIds:
+        toStringArray(record.fields["발주상세품목"]) ??
+        items
+          .filter((item) => item.orderRecordIds.includes(record.id))
+          .map((item) => item.id),
+      status: normalizePurchaseOrderStatus(record.fields["상태"]),
+    }))
+    .sort((a, b) =>
+      compareLatestFirst(
+        { id: a.id, date: a.orderDate, createdTime: a.createdTime },
+        { id: b.id, date: b.orderDate, createdTime: b.createdTime }
+      )
+    );
 
   const eligibleOrderIds = new Set(
     orders
@@ -321,13 +332,20 @@ export async function getReceivingSelectionData(): Promise<PurchaseReceivingSele
 
       return {
         id: record.id,
+        requestDate: toString(record.fields["요청일"]) || undefined,
+        createdTime: record.createdTime,
         prNo: toString(record.fields["PR NO."]),
         title: toString(record.fields["제목"]) || undefined,
         orderRecordIds: linkedOrderIds,
       };
     })
     .filter((request) => request.orderRecordIds.length > 0)
-    .sort((a, b) => b.prNo.localeCompare(a.prNo, "ko"));
+    .sort((a, b) =>
+      compareLatestFirst(
+        { id: a.id, date: a.requestDate, createdTime: a.createdTime },
+        { id: b.id, date: b.requestDate, createdTime: b.createdTime }
+      )
+    );
 
   return { requests, orders, items };
 }
@@ -460,15 +478,12 @@ export async function getReceivingReviewItems(): Promise<
 
   return receivingRecords
     .map((record) => mapReceivingReviewItem(record, orderNoMap))
-    .sort((a, b) => {
-      if (a.reviewCompleted !== b.reviewCompleted) {
-        return a.reviewCompleted ? 1 : -1;
-      }
-
-      return String(b.receivingDate ?? "").localeCompare(
-        String(a.receivingDate ?? "")
-      );
-    });
+    .sort((a, b) =>
+      compareLatestFirst(
+        { id: a.id, date: a.receivingDate, createdTime: a.createdTime },
+        { id: b.id, date: b.receivingDate, createdTime: b.createdTime }
+      )
+    );
 }
 
 export type ReceivingSafetyContext = {

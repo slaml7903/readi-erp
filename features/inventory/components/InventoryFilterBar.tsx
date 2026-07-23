@@ -23,7 +23,7 @@ export default function InventoryFilterBar({
   onDepartmentChange,
 }: InventoryFilterBarProps) {
   return (
-    <div className="grid gap-3 rounded-lg border border-gray-200 bg-white p-4 md:grid-cols-[minmax(260px,1fr)_180px_180px]">
+    <div className="grid gap-3 rounded-lg border border-[var(--border-default)] bg-white p-4 shadow-[0_1px_2px_rgba(0,55,85,0.04)] md:grid-cols-[minmax(260px,1fr)_180px_180px]">
       <SearchInput
         value={search}
         onChange={onSearchChange}

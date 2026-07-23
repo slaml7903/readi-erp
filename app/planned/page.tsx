@@ -26,7 +26,7 @@ export default async function PlannedPage({ searchParams }: PlannedPageProps) {
 
         <Link
           href="/"
-          className="mt-4 inline-flex h-10 items-center rounded-md bg-gray-900 px-4 text-sm font-medium text-white hover:bg-gray-800"
+          className="mt-4 inline-flex h-10 items-center rounded-md bg-[var(--brand-primary)] px-4 text-sm font-semibold text-white hover:bg-[var(--brand-primary-hover)]"
         >
           Dashboard로 이동
         </Link>

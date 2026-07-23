@@ -3,9 +3,11 @@ import {
   airtableCreateRecords,
   airtableFetchAll,
   airtableFetchRecord,
+  airtableUpdateRecord,
   airtableUploadAttachment,
 } from "@/lib/airtable/client";
 import { AirtableRepositoryError } from "@/lib/airtable/errors/airtable-repository.error";
+import { compareLatestFirst } from "@/lib/sort";
 import {
   removeUndefinedFields,
   toAirtableAttachments,
@@ -16,6 +18,15 @@ import {
 } from "@/lib/airtable/record";
 
 import { PURCHASE_REQUEST_STATUS } from "../constants/purchase-status";
+import {
+  EXPENSE_ORDER_FIELDS,
+  EXPENSE_ORDER_ITEM_FIELDS,
+  EXPENSE_ORDER_VIEW,
+  EXPENSE_REQUEST_FIELDS,
+  EXPENSE_STATUS,
+  EXPENSE_TABLES,
+} from "../config/expense.config";
+import { fetchAirtableRecordsByIds } from "./airtable-record-query";
 import {
   normalizePurchaseOrderStatus,
   normalizePurchaseRequestStatus,
@@ -30,9 +41,16 @@ import type {
   PurchaseRequest,
   PurchaseVendorOption,
 } from "../types/purchase.type";
+import type {
+  ExpenseOrderData,
+  ExpenseOrderItemData,
+  ExpenseRequestData,
+  ExpenseStatusFilter,
+} from "../types/expense.type";
 
 type AirtableRecord = {
   id: string;
+  createdTime?: string;
   fields: Record<string, unknown>;
 };
 
@@ -91,7 +109,7 @@ export async function getPurchaseRequests(): Promise<PurchaseRequest[]> {
 
   const projectNameMap = createProjectNameMap(projectRecords);
 
-  return requestRecords.map((record) => {
+  const requests = requestRecords.map((record) => {
     const fields = record.fields;
 
     const orderRecordIds = toStringArray(fields["PO NO."]);
@@ -113,6 +131,7 @@ export async function getPurchaseRequests(): Promise<PurchaseRequest[]> {
 
     return {
       id: record.id,
+      createdTime: record.createdTime,
 
       prNo: toString(fields["PR NO."]),
       title: toString(fields["제목"]),
@@ -143,6 +162,13 @@ export async function getPurchaseRequests(): Promise<PurchaseRequest[]> {
       orderSummaries,
     };
   });
+
+  return requests.sort((a, b) =>
+    compareLatestFirst(
+      { id: a.id, date: a.requestDate, createdTime: a.createdTime },
+      { id: b.id, date: b.requestDate, createdTime: b.createdTime }
+    )
+  );
 }
 
 export async function getPurchaseVendors(): Promise<PurchaseVendorOption[]> {
@@ -440,6 +466,7 @@ function createOrderSummaryMap(
 
     map.set(record.id, {
       id: record.id,
+      createdTime: record.createdTime,
       poNo,
       title: toString(fields["제목"]) || undefined,
       status: normalizePurchaseOrderStatus(fields["상태"]),
@@ -578,4 +605,181 @@ function createVendorNameMap(records: AirtableRecord[]) {
   });
 
   return map;
+}
+
+export async function findExpenseOrders(
+  status: ExpenseStatusFilter,
+  filters: {
+    dateFrom?: string;
+    dateTo?: string;
+    minAmount?: number;
+    maxAmount?: number;
+  } = {}
+): Promise<ExpenseOrderData[]> {
+  const records = await airtableFetchAll(EXPENSE_TABLES.order, {
+    cache: "no-store",
+    fields: Object.values(EXPENSE_ORDER_FIELDS),
+    view: EXPENSE_ORDER_VIEW,
+    filterByFormula: createExpenseFilterFormula(status, filters),
+    sort: [{ field: EXPENSE_ORDER_FIELDS.orderDate, direction: "desc" }],
+  });
+
+  return records.map(mapExpenseOrderRecord);
+}
+
+export async function findExpenseOrderById(
+  orderRecordId: string
+): Promise<ExpenseOrderData | undefined> {
+  try {
+    const record = await airtableFetchRecord(
+      EXPENSE_TABLES.order,
+      orderRecordId,
+      { cache: "no-store" }
+    );
+
+    return mapExpenseOrderRecord(record);
+  } catch (error) {
+    if (isAirtableNotFoundError(error)) return undefined;
+    throw error;
+  }
+}
+
+export async function findExpenseRequestsByIds(
+  requestRecordIds: string[]
+): Promise<ExpenseRequestData[]> {
+  const records = await fetchAirtableRecordsByIds(
+    EXPENSE_TABLES.request,
+    requestRecordIds,
+    Object.values(EXPENSE_REQUEST_FIELDS)
+  );
+
+  return records.map((record) => ({
+    id: record.id,
+    requestNumber: toString(
+      record.fields[EXPENSE_REQUEST_FIELDS.requestNumber]
+    ),
+    approvalFiles:
+      toAttachments(record.fields[EXPENSE_REQUEST_FIELDS.approvalFiles]) ?? [],
+    requestFormFiles:
+      toAttachments(record.fields[EXPENSE_REQUEST_FIELDS.requestFormFiles]) ?? [],
+    quotationFiles:
+      toAttachments(record.fields[EXPENSE_REQUEST_FIELDS.quotationFiles]) ?? [],
+  }));
+}
+
+export async function findExpenseOrderItemsByIds(
+  orderItemRecordIds: string[]
+): Promise<ExpenseOrderItemData[]> {
+  const records = await fetchAirtableRecordsByIds(
+    EXPENSE_TABLES.orderItem,
+    orderItemRecordIds,
+    Object.values(EXPENSE_ORDER_ITEM_FIELDS)
+  );
+
+  return records.map((record) => {
+    const fields = record.fields;
+
+    return {
+      id: record.id,
+      name: toString(fields[EXPENSE_ORDER_ITEM_FIELDS.name]),
+      orderRecordIds:
+        toStringArray(fields[EXPENSE_ORDER_ITEM_FIELDS.orderLinks]) ?? [],
+      vendorRecordIds:
+        toStringArray(fields[EXPENSE_ORDER_ITEM_FIELDS.vendorLinks]) ?? [],
+      quantity: toNumber(fields[EXPENSE_ORDER_ITEM_FIELDS.quantity]),
+      unitPrice: toNumber(fields[EXPENSE_ORDER_ITEM_FIELDS.unitPrice]),
+      totalAmount: toNumber(fields[EXPENSE_ORDER_ITEM_FIELDS.totalAmount]),
+      vatIncluded:
+        toBoolean(fields[EXPENSE_ORDER_ITEM_FIELDS.vatIncluded]) ?? false,
+      memo: toString(fields[EXPENSE_ORDER_ITEM_FIELDS.memo]) || undefined,
+      status: toString(fields[EXPENSE_ORDER_ITEM_FIELDS.status]) || undefined,
+    };
+  });
+}
+
+export async function updateExpenseCompleted(
+  orderRecordId: string,
+  expenseCompleted: boolean
+) {
+  const record = await airtableUpdateRecord(
+    EXPENSE_TABLES.order,
+    orderRecordId,
+    { [EXPENSE_ORDER_FIELDS.expenseCompleted]: expenseCompleted }
+  );
+
+  return mapExpenseOrderRecord(record);
+}
+
+function mapExpenseOrderRecord(record: AirtableRecord): ExpenseOrderData {
+  const fields = record.fields;
+
+  return {
+    id: record.id,
+    createdTime: record.createdTime,
+    orderNumber: toString(fields[EXPENSE_ORDER_FIELDS.orderNumber]),
+    requestRecordIds:
+      toStringArray(fields[EXPENSE_ORDER_FIELDS.requestLinks]) ?? [],
+    orderItemRecordIds:
+      toStringArray(fields[EXPENSE_ORDER_FIELDS.orderItemLinks]) ?? [],
+    orderDate:
+      toString(fields[EXPENSE_ORDER_FIELDS.orderDate]) || undefined,
+    totalAmount: toOptionalNumber(fields[EXPENSE_ORDER_FIELDS.totalAmount]),
+    grossAmount: toOptionalNumber(fields[EXPENSE_ORDER_FIELDS.grossAmount]),
+    needExpense:
+      toBoolean(fields[EXPENSE_ORDER_FIELDS.needExpense]) ?? false,
+    expenseCompleted:
+      toBoolean(fields[EXPENSE_ORDER_FIELDS.expenseCompleted]) ?? false,
+    purchaseOrderFiles:
+      toAttachments(fields[EXPENSE_ORDER_FIELDS.purchaseOrderFiles]) ?? [],
+    memo: toString(fields[EXPENSE_ORDER_FIELDS.memo]) || undefined,
+  };
+}
+
+function createExpenseFilterFormula(
+  status: ExpenseStatusFilter,
+  filters: {
+    dateFrom?: string;
+    dateTo?: string;
+    minAmount?: number;
+    maxAmount?: number;
+  }
+) {
+  const needExpense = `{${EXPENSE_ORDER_FIELDS.needExpense}}=TRUE()`;
+  const expenseCompleted = `{${EXPENSE_ORDER_FIELDS.expenseCompleted}}=TRUE()`;
+  const statusCondition =
+    status === EXPENSE_STATUS.completed
+      ? expenseCompleted
+      : status === EXPENSE_STATUS.all
+        ? `OR(${needExpense},${expenseCompleted})`
+        : `AND(${needExpense},NOT(${expenseCompleted}))`;
+  const conditions = [statusCondition];
+
+  if (filters.dateFrom) {
+    conditions.push(
+      `OR(IS_SAME({${EXPENSE_ORDER_FIELDS.orderDate}},'${filters.dateFrom}','day'),IS_AFTER({${EXPENSE_ORDER_FIELDS.orderDate}},'${filters.dateFrom}'))`
+    );
+  }
+
+  if (filters.dateTo) {
+    conditions.push(
+      `OR(IS_SAME({${EXPENSE_ORDER_FIELDS.orderDate}},'${filters.dateTo}','day'),IS_BEFORE({${EXPENSE_ORDER_FIELDS.orderDate}},'${filters.dateTo}'))`
+    );
+  }
+
+  if (filters.minAmount !== undefined) {
+    conditions.push(`{${EXPENSE_ORDER_FIELDS.totalAmount}}>=${filters.minAmount}`);
+  }
+
+  if (filters.maxAmount !== undefined) {
+    conditions.push(`{${EXPENSE_ORDER_FIELDS.totalAmount}}<=${filters.maxAmount}`);
+  }
+
+  return conditions.length === 1
+    ? conditions[0]
+    : `AND(${conditions.join(",")})`;
+}
+
+function toOptionalNumber(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  return undefined;
 }

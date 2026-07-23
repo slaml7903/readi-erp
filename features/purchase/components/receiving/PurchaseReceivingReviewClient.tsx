@@ -1,7 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import {
   Button,
@@ -27,10 +26,8 @@ export default function PurchaseReceivingReviewClient({
   data,
   initialSearch = "",
 }: PurchaseReceivingReviewClientProps) {
-  const router = useRouter();
   const [selectedReceiving, setSelectedReceiving] =
     useState<PurchaseReceivingReviewItem | null>(data[0] ?? null);
-  const [processingId, setProcessingId] = useState<string | null>(null);
   const [search, setSearch] = useState(initialSearch);
   const [reviewStatus, setReviewStatus] = useState("");
 
@@ -62,58 +59,8 @@ export default function PurchaseReceivingReviewClient({
     });
   }, [data, reviewStatus, search]);
 
-  const handleCompleteReview = useCallback(
-    async (row: PurchaseReceivingReviewItem) => {
-      if (processingId) return;
-
-      if (row.reviewCompleted) {
-        alert("이미 검토완료된 입고확인입니다.");
-        return;
-      }
-
-      const confirmed = window.confirm(
-        "입고확인을 검토완료 처리할까요? 품목과 발주 상태는 Airtable에서 자동 반영됩니다."
-      );
-
-      if (!confirmed) return;
-
-      try {
-        setProcessingId(row.id);
-
-        const response = await fetch(
-          `/api/purchase/receiving/review/${row.id}`,
-          {
-            method: "POST",
-          }
-        );
-
-        const result = await response.json();
-
-        if (!response.ok) {
-          alert(result.message ?? "검토완료 처리에 실패했습니다.");
-          return;
-        }
-
-        alert("검토완료 처리되었습니다.");
-        router.refresh();
-      } catch (error) {
-        console.error(error);
-        alert("검토완료 처리 중 오류가 발생했습니다.");
-      } finally {
-        setProcessingId(null);
-      }
-    },
-    [processingId, router]
-  );
-
   const columns = useMemo<DataTableColumn<PurchaseReceivingReviewItem>[]>(
     () => [
-      {
-        key: "receivingNo",
-        header: "입고확인번호",
-        sortable: true,
-        render: (row) => row.receivingNo || "-",
-      },
       {
         key: "poNos",
         header: "PO NO.",
@@ -153,26 +100,8 @@ export default function PurchaseReceivingReviewClient({
           </span>
         ),
       },
-      {
-        key: "id",
-        header: "처리",
-        align: "center",
-        render: (row) => (
-          <Button
-            type="button"
-            variant="outline"
-            disabled={row.reviewCompleted || processingId === row.id}
-            onClick={(event) => {
-              event.stopPropagation();
-              handleCompleteReview(row);
-            }}
-          >
-            {processingId === row.id ? "처리 중..." : "검토완료"}
-          </Button>
-        ),
-      },
     ],
-    [handleCompleteReview, processingId]
+    []
   );
 
   return (
@@ -216,6 +145,7 @@ export default function PurchaseReceivingReviewClient({
       <div className="grid grid-cols-12 gap-4">
         <div className="col-span-8">
           <DataTable
+            tableId="purchase-receiving-review"
             columns={columns}
             data={filteredData}
             getRowId={(row) => row.id}

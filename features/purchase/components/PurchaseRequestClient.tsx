@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 
 import { Drawer } from "@/components/ui";
 
@@ -17,8 +16,6 @@ interface Props {
 }
 
 export default function PurchaseRequestClient({ data, initialSearch = "" }: Props) {
-  const router = useRouter();
-
   const [search, setSearch] = useState(initialSearch);
   const [status, setStatus] = useState("");
   const [team, setTeam] = useState("");
@@ -61,10 +58,6 @@ export default function PurchaseRequestClient({ data, initialSearch = "" }: Prop
     setSelectedRequest(null);
   };
 
-  const handleCreateClick = () => {
-    router.push("/purchase/request/new");
-  };
-
   return (
     <div className="space-y-4">
       <PurchaseFilterBar
@@ -74,7 +67,6 @@ export default function PurchaseRequestClient({ data, initialSearch = "" }: Prop
         onSearchChange={setSearch}
         onStatusChange={setStatus}
         onTeamChange={setTeam}
-        onCreateClick={handleCreateClick}
       />
 
       <PurchaseRequestTable

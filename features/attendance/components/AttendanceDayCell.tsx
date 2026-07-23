@@ -75,7 +75,7 @@ export default function AttendanceDayCell({
         <div
           className={`flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold ${
             isToday
-              ? "bg-gray-900 text-white"
+              ? "bg-[var(--brand-primary)] text-white"
               : isHoliday
                 ? "text-red-500"
                 : dayIndex === 6

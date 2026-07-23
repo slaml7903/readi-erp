@@ -1,12 +1,23 @@
+"use client";
+
+import { useResizableColumns } from "@/components/ui/DataTable";
 import { formatDateTime } from "@/lib/date";
 
 import type { VehicleDrivingLog } from "../types/vehicle.type";
+
+const LOG_COLUMNS = [
+  ["start", "출발일시", 165], ["end", "도착일시", 165], ["vehicle", "차량", 120],
+  ["department", "부서", 110], ["driver", "운전자", 110], ["destination", "행선지", 160],
+  ["odometer", "주행전/후", 150], ["distance", "운행거리", 110], ["hours", "운행시간", 105],
+  ["fuel", "주유금액", 115], ["status", "상태", 95], ["memo", "비고", 180],
+].map(([key, label, defaultWidth]) => ({ key: String(key), label: String(label), defaultWidth: Number(defaultWidth), minWidth: 75 }));
 
 function nullableNumber(value: number | null, suffix = "") {
   return value === null ? "-" : `${value.toLocaleString("ko-KR")}${suffix}`;
 }
 
 export default function VehicleLogTable({ logs }: { logs: VehicleDrivingLog[] }) {
+  const table = useResizableColumns("vehicle-logs", LOG_COLUMNS);
   if (logs.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-gray-300 bg-white px-4 py-10 text-center text-sm text-gray-500">
@@ -17,22 +28,13 @@ export default function VehicleLogTable({ logs }: { logs: VehicleDrivingLog[] })
 
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      {table.hasCustomWidths ? <div className="hidden justify-end border-b border-gray-100 px-3 py-2 lg:flex"><button type="button" onClick={table.resetAll} className="text-xs text-gray-500 hover:text-gray-900">컬럼 너비 초기화</button></div> : null}
       <div className="hidden overflow-x-auto lg:block">
-        <table className="min-w-[1200px] divide-y divide-gray-200 text-sm">
+        <table className="w-full table-fixed divide-y divide-gray-200 text-sm [&_td]:text-center" style={{ minWidth: 1200 }}>
+          <colgroup>{LOG_COLUMNS.map((column) => <col key={column.key} style={table.getColumnStyle(column.key)} />)}</colgroup>
           <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
             <tr>
-              <th className="px-4 py-3">출발일시</th>
-              <th className="px-4 py-3">도착일시</th>
-              <th className="px-4 py-3">차량</th>
-              <th className="px-4 py-3">부서</th>
-              <th className="px-4 py-3">운전자</th>
-              <th className="px-4 py-3">행선지</th>
-              <th className="px-4 py-3 text-right">주행전/후</th>
-              <th className="px-4 py-3 text-right">운행거리</th>
-              <th className="px-4 py-3 text-right">운행시간</th>
-              <th className="px-4 py-3 text-right">주유금액</th>
-              <th className="px-4 py-3">상태</th>
-              <th className="px-4 py-3">비고</th>
+              {LOG_COLUMNS.map((column) => <th key={column.key} className="relative px-4 py-3 text-center">{column.label}{table.renderResizeHandle(column.key)}</th>)}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">

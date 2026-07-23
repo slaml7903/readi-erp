@@ -11,7 +11,6 @@ interface PurchaseFilterBarProps {
   onSearchChange: (value: string) => void;
   onStatusChange: (value: string) => void;
   onTeamChange: (value: string) => void;
-  onCreateClick: () => void;
 }
 
 export default function PurchaseFilterBar({
@@ -21,7 +20,6 @@ export default function PurchaseFilterBar({
   onSearchChange,
   onStatusChange,
   onTeamChange,
-  onCreateClick,
 }: PurchaseFilterBarProps) {
   const handleReset = () => {
     onSearchChange("");
@@ -30,8 +28,8 @@ export default function PurchaseFilterBar({
   };
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
-      <div className="flex flex-wrap gap-3">
+    <div className="rounded-lg border border-[var(--border-default)] bg-white p-4 shadow-[0_1px_2px_rgba(0,55,85,0.04)]">
+      <div className="flex flex-wrap items-end gap-3">
         <SearchInput
           value={search}
           onChange={onSearchChange}
@@ -63,9 +61,6 @@ export default function PurchaseFilterBar({
           초기화
         </Button>
 
-        <Button type="button" onClick={onCreateClick}>
-          구매요청 등록
-        </Button>
       </div>
     </div>
   );

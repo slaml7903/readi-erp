@@ -1,6 +1,15 @@
+"use client";
+
+import { useResizableColumns } from "@/components/ui/DataTable";
 import { formatDateTime } from "@/lib/date";
 
 import type { VehicleDisplayStatus, VehicleStatusItem } from "../types/vehicle.type";
+
+const STATUS_COLUMNS = [
+  ["number", "차량번호", 130], ["name", "차량명", 150], ["status", "상태", 100],
+  ["driver", "운전자", 120], ["destination", "행선지", 180],
+  ["startedAt", "출발일시", 170], ["mileage", "최근 주행거리", 150],
+].map(([key, label, defaultWidth]) => ({ key: String(key), label: String(label), defaultWidth: Number(defaultWidth), minWidth: 80 }));
 
 function statusClass(status: VehicleDisplayStatus) {
   if (status === "대기중") return "bg-emerald-50 text-emerald-700";
@@ -28,6 +37,7 @@ export default function VehicleStatusTable({
 }: {
   vehicles: VehicleStatusItem[];
 }) {
+  const table = useResizableColumns("vehicle-status", STATUS_COLUMNS);
   if (vehicles.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-gray-300 bg-white px-4 py-10 text-center text-sm text-gray-500">
@@ -38,17 +48,13 @@ export default function VehicleStatusTable({
 
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      {table.hasCustomWidths ? <ResetWidths onClick={table.resetAll} /> : null}
       <div className="hidden overflow-x-auto md:block">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
+        <table className="w-full table-fixed divide-y divide-gray-200 text-sm [&_td]:text-center" style={{ minWidth: 1000 }}>
+          <colgroup>{STATUS_COLUMNS.map((column) => <col key={column.key} style={table.getColumnStyle(column.key)} />)}</colgroup>
           <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
             <tr>
-              <th className="px-4 py-3">차량번호</th>
-              <th className="px-4 py-3">차량명</th>
-              <th className="px-4 py-3">상태</th>
-              <th className="px-4 py-3">운전자</th>
-              <th className="px-4 py-3">행선지</th>
-              <th className="px-4 py-3">출발일시</th>
-              <th className="px-4 py-3 text-right">최근 주행거리</th>
+              {STATUS_COLUMNS.map((column) => <th key={column.key} className="relative px-4 py-3 text-center">{column.label}{table.renderResizeHandle(column.key)}</th>)}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -108,4 +114,8 @@ export default function VehicleStatusTable({
       </div>
     </div>
   );
+}
+
+function ResetWidths({ onClick }: { onClick: () => void }) {
+  return <div className="hidden justify-end border-b border-gray-100 px-3 py-2 md:flex"><button type="button" onClick={onClick} className="text-xs text-gray-500 hover:text-gray-900">컬럼 너비 초기화</button></div>;
 }

@@ -31,7 +31,7 @@ export default function VehicleLogFilters({
   return (
     <form
       key={JSON.stringify(filters)}
-      className="grid gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm lg:grid-cols-6"
+      className="grid gap-3 rounded-lg border border-[var(--border-default)] bg-white p-4 shadow-[0_1px_2px_rgba(0,55,85,0.04)] lg:grid-cols-6"
       onSubmit={(event) => {
         event.preventDefault();
         const formData = new FormData(event.currentTarget);

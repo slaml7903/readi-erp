@@ -7,6 +7,7 @@ export type InventoryStockStatus =
 
 export type InventoryItem = {
   id: string;
+  createdTime?: string;
   itemCode: string;
   itemName: string;
   specification?: string;
@@ -35,6 +36,7 @@ export type InventoryMovementType =
 
 export type InventoryMovement = {
   id: string;
+  createdTime?: string;
   stockNumber?: string;
   transactionDate: string;
   type: InventoryMovementType;

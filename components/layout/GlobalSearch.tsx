@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { Search } from "lucide-react";
 
 import type { GlobalSearchResult } from "@/features/search/services/global-search.service";
 
@@ -69,15 +70,17 @@ export default function GlobalSearch() {
   }, []);
 
   return (
-    <div ref={containerRef} className="relative w-[420px]">
+    <div ref={containerRef} className="relative w-full">
+      <Search aria-hidden="true" size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
       <input
         value={keyword}
         onChange={(event) => setKeyword(event.target.value)}
         onFocus={() => {
           if (visibleResults.length > 0) setIsOpen(true);
         }}
-        placeholder="문서번호, 거래처, 프로젝트, 품목, 담당자 검색..."
-        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-slate-500"
+        aria-label="통합 검색"
+        placeholder="문서번호, 거래처, 품목 검색"
+        className="h-9 w-full rounded-md border border-slate-300 bg-white pl-9 pr-3 text-sm text-slate-900 outline-none transition focus:border-[var(--brand-secondary)] focus:ring-2 focus:ring-[var(--brand-primary-light)]"
       />
 
       {isOpen && canSearch ? (
